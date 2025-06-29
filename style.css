@@ -54,6 +54,34 @@ header nav a {
   text-align: center;
 }
 
+.hero-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2em;
+  flex-wrap: wrap;
+}
+
+.hero-content img {
+  max-width: 200px;
+  border-radius: 50%;
+}
+
+.btn {
+  display: inline-block;
+  margin-top: 1em;
+  padding: 0.75em 1.5em;
+  background: #fff;
+  color: #01796f;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.btn:hover {
+  background: #f4f4f4;
+}
+
 .about, .projects, .contact {
   padding: 2em 0;
 }
