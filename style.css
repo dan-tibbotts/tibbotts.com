@@ -2,23 +2,71 @@ body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  background: #f4f4f4;
+  background: #fff;
   color: #333;
 }
-header, footer {
-  background: #333;
+
+header {
+  background: #003d5b;
   color: #fff;
-  padding: 1em;
-  text-align: center;
 }
+
+header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1em;
+}
+
 header nav a {
   color: #fff;
   margin-left: 1em;
+  text-decoration: none;
 }
-main {
+
+.hero {
+  background: linear-gradient(135deg, #01796f, #38a2d7);
+  color: #fff;
+  padding: 4em 0;
+  text-align: center;
+}
+
+.about, .projects, .contact {
+  padding: 2em 0;
+}
+
+.container {
+  width: 90%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.project-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+.project-item {
+  flex: 1 1 calc(33% - 1em);
+  background: #f4f4f4;
   padding: 1em;
+  box-sizing: border-box;
 }
-main ul {
-  list-style-type: disc;
-  padding-left: 1.2em;
+
+footer {
+  background: #333;
+  color: #fff;
+  text-align: center;
+  padding: 1em 0;
+}
+
+@media (max-width: 600px) {
+  .project-item {
+    flex-basis: 100%;
+  }
+
+  header nav a {
+    margin-left: 0.5em;
+  }
 }
