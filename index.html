@@ -3,20 +3,58 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Personal Portfolio">
-  <title>My Portfolio</title>
+  <meta name="description" content="Portfolio of Daniel Tibbott">
+  <title>Daniel Tibbott - Portfolio</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>Welcome to My Portfolio</h1>
-    <nav><a href="projects/index.html">Projects</a></nav>
+    <div class="container">
+      <h1>Daniel Tibbott</h1>
+      <nav>
+        <a href="#about">About</a>
+        <a href="#projects">Projects</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
   </header>
-  <main>
-    <p>This website showcases my personal projects and experience. Explore the projects section to learn more about my work.</p>
-  </main>
+
+  <section class="hero">
+    <div class="container">
+      <h2>Portfolio Web Developer</h2>
+      <p>Welcome to my professional portfolio website.</p>
+    </div>
+  </section>
+
+  <section id="about" class="about">
+    <div class="container">
+      <h2>About Me</h2>
+      <p>I specialize in building responsive websites and web applications. My focus is on creating clean and user‑friendly experiences.</p>
+    </div>
+  </section>
+
+  <section id="projects" class="projects">
+    <div class="container">
+      <h2>Featured Projects</h2>
+      <div class="project-grid">
+        <div class="project-item">Project One</div>
+        <div class="project-item">Project Two</div>
+        <div class="project-item">Project Three</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" class="contact">
+    <div class="container">
+      <h2>Contact</h2>
+      <p>Email: <a href="mailto:dan@example.com">dan@example.com</a></p>
+    </div>
+  </section>
+
   <footer>
-    <p>Last updated: $(date +%d\ %b\ %Y)</p>
+    <div class="container">
+      <p>&copy; 2025 Daniel Tibbott</p>
+    </div>
   </footer>
 </body>
 </html>
