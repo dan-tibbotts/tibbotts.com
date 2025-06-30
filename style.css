@@ -103,6 +103,12 @@ header nav a {
   background: #f4f4f4;
   padding: 1em;
   box-sizing: border-box;
+  transition: background 0.3s;
+  cursor: pointer;
+}
+
+.project-item:hover {
+  background: #e0e0e0;
 }
 
 footer {
