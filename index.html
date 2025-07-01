@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Portfolio of Daniel Tibbotts">
+  <meta name="title" content="Daniel Tibbotts - Portfolio">
+  <meta name="description" content="Portfolio of software engineer Daniel Tibbotts">
   <title>Daniel Tibbotts - Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,6 +26,8 @@
     </div>
   </header>
 
+  <main>
+
   <section class="hero">
     <div class="container hero-content">
       <img src="assets/images/me-AI.png" alt="Daniel Tibbotts">
@@ -35,6 +39,47 @@
     </div>
   </section>
 
+  <section class="testimonials fade-in">
+    <div class="container">
+      <h2>Testimonials</h2>
+      <div class="testimonial-grid">
+        <div class="testimonial-card">
+          <p>"Daniel delivered excellent work on time and exceeded our expectations."</p>
+          <span>- Client A</span>
+        </div>
+        <div class="testimonial-card">
+          <p>"Professional, reliable, and highly skilled."</p>
+          <span>- Client B</span>
+        </div>
+        <div class="testimonial-card">
+          <p>"Great communication and attention to detail throughout the project."</p>
+          <span>- Client C</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta fade-in">
+    <div class="container">
+      <h2>Ready to start a project?</h2>
+      <p>Let's build something great together.</p>
+      <a href="#contact" class="btn cta-btn">Get in Touch</a>
+    </div>
+  </section>
+
+
+
+
+
+  <section id="why" class="why fade-in">
+    <div class="container">
+      <h2>Why I Do It</h2>
+      <p>I am passionate about using technology to solve real problems and make life easier.</p>
+      <p>Building intuitive software allows me to learn continuously and help others succeed.</p>
+      <blockquote>"Whatever you do, work heartily, as for the Lord and not for men." - Colossians 3:23</blockquote>
+    </div>
+  </section>
+
   <section id="about" class="about">
     <div class="container">
       <h2>About Me</h2>
@@ -42,14 +87,56 @@
     </div>
   </section>
 
-  <section id="projects" class="projects">
+  <section id="projects" class="projects fade-in">
     <div class="container">
-      <h2>Featured Projects</h2>
-      <div class="project-grid">
-        <div class="project-item">Project One</div>
-        <div class="project-item">Project Two</div>
-        <div class="project-item">Project Three</div>
+      <h2>Portfolio</h2>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="web">Web</button>
+        <button class="filter-btn" data-filter="mobile">Mobile</button>
       </div>
+      <div class="project-grid">
+        <div class="project-item" data-category="web" data-description="Web project">
+          <img src="assets/images/me-AI.png" alt="Project One" loading="lazy">
+          <div class="overlay"><h3>Project One</h3></div>
+        </div>
+        <div class="project-item" data-category="mobile" data-description="Mobile project">
+          <img src="assets/images/me-AI.png" alt="Project Two" loading="lazy">
+          <div class="overlay"><h3>Project Two</h3></div>
+        </div>
+        <div class="project-item" data-category="web" data-description="Another web project">
+          <img src="assets/images/me-AI.png" alt="Project Three" loading="lazy">
+          <div class="overlay"><h3>Project Three</h3></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="testimonials fade-in">
+    <div class="container">
+      <h2>Testimonials</h2>
+      <div class="testimonial-grid">
+        <div class="testimonial-card">
+          <p>"Daniel delivered excellent work on time and exceeded our expectations."</p>
+          <span>- Client A</span>
+        </div>
+        <div class="testimonial-card">
+          <p>"Professional, reliable, and highly skilled."</p>
+          <span>- Client B</span>
+        </div>
+        <div class="testimonial-card">
+          <p>"Great communication and attention to detail throughout the project."</p>
+          <span>- Client C</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta fade-in">
+    <div class="container">
+      <h2>Ready to start a project?</h2>
+      <p>Let's build something great together.</p>
+      <a href="#contact" class="btn cta-btn">Get in Touch</a>
     </div>
   </section>
 
@@ -60,11 +147,20 @@
     </div>
   </section>
 
+  </main>
+
   <footer>
     <div class="container">
       <p>&copy; 2025 Daniel Tibbotts</p>
     </div>
   </footer>
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true">
+      <button class="modal-close" aria-label="Close">&times;</button>
+      <img src="" alt="" class="modal-img">
+      <div class="modal-body"></div>
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
