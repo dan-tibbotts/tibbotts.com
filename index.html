@@ -84,11 +84,8 @@
         Checking browser support...
       </p>
 
-      <p class="label">
-        Available tools:
-        <code>get_site_info</code>,
-        <code>set_welcome_message</code>
-      </p>
+      <p class="label">Available tools:</p>
+      <ul id="available-tools" aria-label="Registered WebMCP tools"></ul>
 
       <button id="reset" type="button">
         Reset message
@@ -102,10 +99,77 @@
     const welcome = document.querySelector("#welcome");
     const status = document.querySelector("#status");
     const resetButton = document.querySelector("#reset");
+    const availableTools = document.querySelector("#available-tools");
 
     resetButton.addEventListener("click", () => {
       welcome.textContent = defaultMessage;
     });
+
+    const tools = [
+      {
+        name: "get_site_info",
+        description: "Read basic information and the current welcome message from tibbotts.com.",
+
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false
+        },
+
+        annotations: {
+          readOnlyHint: true
+        },
+
+        execute: async () => ({
+          site: "tibbotts.com",
+          title: document.title,
+          url: window.location.href,
+          welcomeMessage: welcome.textContent
+        })
+      },
+      {
+        name: "set_welcome_message",
+        description: "Change the welcome message displayed on tibbotts.com. The change is temporary.",
+
+        inputSchema: {
+          type: "object",
+          properties: {
+            message: {
+              type: "string",
+              description: "New welcome message (1–200 characters).",
+              minLength: 1,
+              maxLength: 200
+            }
+          },
+          required: ["message"],
+          additionalProperties: false
+        },
+
+        annotations: {
+          readOnlyHint: false
+        },
+
+        execute: async ({ message }) => {
+          if (
+            typeof message !== "string" ||
+            message.trim().length === 0 ||
+            message.length > 200
+          ) {
+            return {
+              success: false,
+              error: "Message must contain 1–200 characters."
+            };
+          }
+
+          welcome.textContent = message;
+
+          return {
+            success: true,
+            displayedMessage: message
+          };
+        }
+      }
+    ];
 
     async function initialiseWebMCP() {
       if (typeof document.modelContext?.registerTool !== "function") {
@@ -114,74 +178,17 @@
       }
 
       try {
-        // Tool 1: Read information about the website.
-        await document.modelContext.registerTool({
-          name: "get_site_info",
-          description: "Read basic information and the current welcome message from tibbotts.com.",
+        for (const tool of tools) {
+          await document.modelContext.registerTool(tool);
 
-          inputSchema: {
-            type: "object",
-            properties: {},
-            additionalProperties: false
-          },
+          const item = document.createElement("li");
+          const name = document.createElement("code");
+          name.textContent = tool.name;
+          item.append(name);
+          availableTools.append(item);
+        }
 
-          annotations: {
-            readOnlyHint: true
-          },
-
-          execute: async () => ({
-            site: "tibbotts.com",
-            title: document.title,
-            url: window.location.href,
-            welcomeMessage: welcome.textContent
-          })
-        });
-
-        // Tool 2: Change the displayed welcome message.
-        await document.modelContext.registerTool({
-          name: "set_welcome_message",
-          description: "Change the welcome message displayed on tibbotts.com. The change is temporary.",
-
-          inputSchema: {
-            type: "object",
-            properties: {
-              message: {
-                type: "string",
-                description: "New welcome message (1–200 characters).",
-                minLength: 1,
-                maxLength: 200
-              }
-            },
-            required: ["message"],
-            additionalProperties: false
-          },
-
-          annotations: {
-            readOnlyHint: false
-          },
-
-          execute: async ({ message }) => {
-            if (
-              typeof message !== "string" ||
-              message.trim().length === 0 ||
-              message.length > 200
-            ) {
-              return {
-                success: false,
-                error: "Message must contain 1–200 characters."
-              };
-            }
-
-            welcome.textContent = message;
-
-            return {
-              success: true,
-              displayedMessage: message
-            };
-          }
-        });
-
-        status.textContent = "WebMCP ready — 2 tools registered";
+        status.textContent = `WebMCP ready — ${tools.length} tools registered`;
 
       } catch (error) {
         status.textContent = "WebMCP registration failed";

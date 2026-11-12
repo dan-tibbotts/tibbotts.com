@@ -1,0 +1,16 @@
+
+# Allow all standard search engine crawlers
+User-agent: *
+Allow: /
+
+# Allow OpenAI's ChatGPT search crawler
+User-agent: OAI-SearchBot
+Allow: /
+
+# Allow ChatGPT user-requested page retrieval
+User-agent: ChatGPT-User
+Allow: /
+
+# Allow OpenAI's training crawler
+User-agent: GPTBot
+Allow: /
