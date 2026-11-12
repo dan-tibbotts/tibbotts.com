@@ -1,2 +1,195 @@
-nothing to see here...
-Maybe this has MCP capabilities? lets try connect an AI Agent to this site? 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tibbotts.com — WebMCP Demo</title>
+
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background: light-dark(#f6f7f9, #111318);
+      color: light-dark(#20242c, #f2f3f5);
+    }
+
+    main {
+      width: min(550px, calc(100% - 48px));
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      letter-spacing: -0.05em;
+      margin-bottom: 12px;
+    }
+
+    #welcome {
+      font-size: 1.25rem;
+      min-height: 2em;
+      overflow-wrap: anywhere;
+    }
+
+    .panel {
+      padding: 20px;
+      border-radius: 14px;
+      border: 1px solid light-dark(#dce0e5, #343841);
+      background: light-dark(#fff, #1b1e24);
+    }
+
+    .label {
+      font-size: 0.8rem;
+      color: light-dark(#646c78, #abb2bd);
+      margin-bottom: 7px;
+    }
+
+    code {
+      overflow-wrap: anywhere;
+    }
+
+    button {
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid currentColor;
+      padding: 9px 15px;
+      border-radius: 8px;
+      color: inherit;
+    }
+
+    #status {
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>tibbotts.com</h1>
+
+    <p id="welcome" aria-live="polite">
+      nothing to see here...
+    </p>
+
+    <div class="panel">
+      <p class="label">WebMCP demo</p>
+
+      <p id="status" role="status">
+        Checking browser support...
+      </p>
+
+      <p class="label">
+        Available tools:
+        <code>get_site_info</code>,
+        <code>set_welcome_message</code>
+      </p>
+
+      <button id="reset" type="button">
+        Reset message
+      </button>
+    </div>
+  </main>
+
+  <script type="module">
+    const defaultMessage = "nothing to see here...";
+
+    const welcome = document.querySelector("#welcome");
+    const status = document.querySelector("#status");
+    const resetButton = document.querySelector("#reset");
+
+    resetButton.addEventListener("click", () => {
+      welcome.textContent = defaultMessage;
+    });
+
+    async function initialiseWebMCP() {
+      if (typeof document.modelContext?.registerTool !== "function") {
+        status.textContent = "WebMCP unavailable in this browser";
+        return;
+      }
+
+      try {
+        // Tool 1: Read information about the website.
+        await document.modelContext.registerTool({
+          name: "get_site_info",
+          description: "Read basic information and the current welcome message from tibbotts.com.",
+
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: false
+          },
+
+          annotations: {
+            readOnlyHint: true
+          },
+
+          execute: async () => ({
+            site: "tibbotts.com",
+            title: document.title,
+            url: window.location.href,
+            welcomeMessage: welcome.textContent
+          })
+        });
+
+        // Tool 2: Change the displayed welcome message.
+        await document.modelContext.registerTool({
+          name: "set_welcome_message",
+          description: "Change the welcome message displayed on tibbotts.com. The change is temporary.",
+
+          inputSchema: {
+            type: "object",
+            properties: {
+              message: {
+                type: "string",
+                description: "New welcome message (1–200 characters).",
+                minLength: 1,
+                maxLength: 200
+              }
+            },
+            required: ["message"],
+            additionalProperties: false
+          },
+
+          annotations: {
+            readOnlyHint: false
+          },
+
+          execute: async ({ message }) => {
+            if (
+              typeof message !== "string" ||
+              message.trim().length === 0 ||
+              message.length > 200
+            ) {
+              return {
+                success: false,
+                error: "Message must contain 1–200 characters."
+              };
+            }
+
+            welcome.textContent = message;
+
+            return {
+              success: true,
+              displayedMessage: message
+            };
+          }
+        });
+
+        status.textContent = "WebMCP ready — 2 tools registered";
+
+      } catch (error) {
+        status.textContent = "WebMCP registration failed";
+        console.error("WebMCP registration failed:", error);
+      }
+    }
+
+    initialiseWebMCP();
+  </script>
+</body>
+</html>
