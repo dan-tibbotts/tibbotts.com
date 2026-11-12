@@ -4,11 +4,19 @@ import {
   deletePerson,
   getPersonConnections,
   loadTree,
-  movePerson,
+  moveTimelinePerson,
   saveTree,
   updatePerson
-} from "./tree-model.js?v=5";
-import { getBirthMonth, inferBirthYears, movePersonNode, renderTree, updateTimeline } from "./tree-view.js?v=8";
+} from "./tree-model.js?v=6";
+import {
+  getBirthMonth,
+  inferBirthYears,
+  MAX_PIXELS_PER_YEAR,
+  movePersonNode,
+  renderTree,
+  updateTimeline,
+  YEAR_WIDTH
+} from "./tree-view.js?v=10";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -32,6 +40,7 @@ let layoutSize = { x: 0, y: 0, width: 720, height: 380, positions: new Map(), mo
 let viewBox = { x: 0, y: 0, width: 720, height: 380 };
 let selectedPersonId = null;
 let hasNavigated = false;
+let previousViewportWidth = 0;
 let pointerStart = null;
 let pinchStart = null;
 const activePointers = new Map();
@@ -60,46 +69,36 @@ function saveChanges(nextTree) {
 
 function setViewBox(nextViewBox) {
   viewBox = nextViewBox;
+  const bounds = viewport.getBoundingClientRect();
   svg.setAttribute(
     "viewBox",
-    `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`
+    `0 0 ${bounds.width} ${bounds.height}`
   );
-  const bounds = viewport.getBoundingClientRect();
   updateTimeline(svg, layoutSize, viewBox, bounds.width, bounds.height);
 }
 
-function fitTree(showWholeTree = false) {
+function getFitWidth(viewportWidth) {
+  const horizontalPadding = 48;
+  const yearRange = (layoutSize.maxYear - layoutSize.minYear + 1) * YEAR_WIDTH;
+  const availableWidth = viewportWidth - layoutSize.nodeWidth - horizontalPadding;
+  return availableWidth > 0
+    ? Math.max(viewportWidth, yearRange * viewportWidth / availableWidth)
+    : Math.max(viewportWidth, layoutSize.width);
+}
+
+function fitTree() {
   const bounds = viewport.getBoundingClientRect();
   if (bounds.width === 0 || bounds.height === 0) return;
-
-  if (!showWholeTree && window.matchMedia("(max-width: 620px)").matches && tree.people.length) {
-    const newest = tree.people.reduce((latest, person) =>
-      layoutSize.birthYears.get(person.id).year >
-        layoutSize.birthYears.get(latest.id).year
-        ? person
-        : latest
-    );
-    const position = layoutSize.positions.get(newest.id);
-    const width = bounds.width;
-    const height = bounds.height;
-    setViewBox({
-      x: position.x + layoutSize.nodeWidth / 2 - width / 2,
-      y: position.y + layoutSize.nodeHeight / 2 - height / 2,
-      width,
-      height
-    });
-    hasNavigated = false;
-    return;
-  }
-
-  const aspectRatio = bounds.width / bounds.height;
-  const width = Math.max(layoutSize.width, layoutSize.height * aspectRatio);
-  const height = Math.max(layoutSize.height, layoutSize.width / aspectRatio);
+  if (!tree.people.length) return;
+  previousViewportWidth = bounds.width;
+  const width = getFitWidth(bounds.width);
+  layoutSize.fitWidth = width;
+  const scale = bounds.width / width;
   setViewBox({
-    x: layoutSize.x - (width - layoutSize.width) / 2,
-    y: layoutSize.y - (height - layoutSize.height) / 2,
+    x: layoutSize.startX - 32 / scale,
+    y: 0,
     width,
-    height
+    height: bounds.height
   });
   hasNavigated = false;
 }
@@ -119,20 +118,42 @@ function render() {
   fitTree();
 }
 
-function zoom(factor) {
+function zoom(factor, clientX = null) {
+  flushScheduledViewBox();
   const bounds = viewport.getBoundingClientRect();
-  const minimumWidth = Math.min(layoutSize.width * 0.3, bounds.width * 0.3);
-  const nextWidth = Math.min(layoutSize.width * 2.5, Math.max(minimumWidth, viewBox.width * factor));
-  const nextHeight = viewBox.height * (nextWidth / viewBox.width);
-  const centerX = viewBox.x + viewBox.width / 2;
-  const centerY = viewBox.y + viewBox.height / 2;
+  const minimumWidth = bounds.width * YEAR_WIDTH / MAX_PIXELS_PER_YEAR;
+  const maximumWidth = layoutSize.fitWidth ?? Math.max(layoutSize.width, bounds.width);
+  const nextWidth = Math.min(maximumWidth, Math.max(minimumWidth, viewBox.width * factor));
+  const anchorScreenX = (clientX ?? (bounds.left + bounds.width / 2)) - bounds.left;
+  const anchorX = viewBox.x + anchorScreenX * viewBox.width / bounds.width;
   setViewBox({
-    x: centerX - nextWidth / 2,
-    y: centerY - nextHeight / 2,
+    x: anchorX - anchorScreenX * nextWidth / bounds.width,
+    y: viewBox.y,
     width: nextWidth,
-    height: nextHeight
+    height: bounds.height
   });
   hasNavigated = true;
+}
+
+let viewBoxFrame = 0;
+let pendingViewBox = null;
+function scheduleViewBox(nextViewBox) {
+  pendingViewBox = nextViewBox;
+  if (viewBoxFrame) return;
+  viewBoxFrame = requestAnimationFrame(() => {
+    viewBoxFrame = 0;
+    setViewBox(pendingViewBox);
+    pendingViewBox = null;
+  });
+}
+
+function flushScheduledViewBox() {
+  if (!viewBoxFrame) return;
+  cancelAnimationFrame(viewBoxFrame);
+  viewBoxFrame = 0;
+  const nextViewBox = pendingViewBox;
+  pendingViewBox = null;
+  if (nextViewBox) setViewBox(nextViewBox);
 }
 
 function populatePersonOptions(select, selectedId) {
@@ -200,16 +221,14 @@ function openPerson(personId) {
 function focusPerson(personId) {
   const position = layoutSize.positions.get(personId);
   if (!position) return;
-  const dimensions = viewMode === "circle"
-    ? { width: 164, height: 148 }
-    : { width: 218, height: 112 };
-  const centerX = position.x + dimensions.width / 2;
-  const centerY = position.y + dimensions.height / 2;
+  const centerX = position.x + layoutSize.nodeWidth / (2 * layoutSize.scale);
+  const centerY = position.y + layoutSize.nodeHeight / 2;
+  const bounds = viewport.getBoundingClientRect();
   setViewBox({
     x: centerX - viewBox.width / 2,
     y: centerY - viewBox.height / 2,
     width: viewBox.width,
-    height: viewBox.height
+    height: bounds.height
   });
   hasNavigated = true;
 }
@@ -413,7 +432,7 @@ document.querySelector("#person-connections").addEventListener("click", (event) 
 
 document.querySelector("#zoom-in").addEventListener("click", () => zoom(0.8));
 document.querySelector("#zoom-out").addEventListener("click", () => zoom(1.25));
-document.querySelector("#zoom-level").addEventListener("click", () => fitTree(true));
+document.querySelector("#zoom-level").addEventListener("click", fitTree);
 document.querySelector("#view-mode").addEventListener("change", (event) => {
   viewMode = event.currentTarget.value;
   render();
@@ -531,17 +550,17 @@ viewport.addEventListener("pointermove", (event) => {
     };
     const bounds = viewport.getBoundingClientRect();
     const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
-    const minimumWidth = Math.min(layoutSize.width * 0.3, bounds.width * 0.3);
+    const minimumWidth = bounds.width * YEAR_WIDTH / MAX_PIXELS_PER_YEAR;
+    const maximumWidth = layoutSize.fitWidth ?? Math.max(layoutSize.width, bounds.width);
     const width = Math.min(
-      layoutSize.width * 2.5,
+      maximumWidth,
       Math.max(minimumWidth, pinchStart.viewBox.width * pinchStart.distance / distance)
     );
-    const height = pinchStart.viewBox.height * width / pinchStart.viewBox.width;
-    setViewBox({
+    scheduleViewBox({
       x: pinchStart.anchor.x - (midpoint.x - bounds.left) * width / bounds.width,
-      y: pinchStart.anchor.y - (midpoint.y - bounds.top) * height / bounds.height,
+      y: pinchStart.anchor.y - (midpoint.y - bounds.top),
       width,
-      height
+      height: bounds.height
     });
     hasNavigated = true;
     return;
@@ -553,21 +572,15 @@ viewport.addEventListener("pointermove", (event) => {
       pointerStart.moved = true;
     }
     const position = {
-      x: Math.min(
-        layoutSize.columnBounds.get(pointerStart.personId).right - layoutSize.nodeWidth,
-        Math.max(
-          layoutSize.columnBounds.get(pointerStart.personId).left,
-          pointerStart.position.x + (event.clientX - pointerStart.x) * (viewBox.width / bounds.width)
-        )
-      ),
-      y: pointerStart.position.y
+      x: pointerStart.position.x,
+      y: pointerStart.position.y + (event.clientY - pointerStart.y)
     };
     movePersonNode(svg, tree, layoutSize, pointerStart.personId, position);
     hasNavigated = true;
     return;
   }
 
-  setViewBox({
+  scheduleViewBox({
     ...viewBox,
     x: pointerStart.viewX - (event.clientX - pointerStart.x) * (viewBox.width / bounds.width),
     y: pointerStart.viewY - (event.clientY - pointerStart.y) * (viewBox.height / bounds.height)
@@ -576,6 +589,7 @@ viewport.addEventListener("pointermove", (event) => {
 });
 
 function stopPanning(event) {
+  flushScheduledViewBox();
   activePointers.delete(event.pointerId);
   if (pinchStart) {
     pinchStart = null;
@@ -609,7 +623,7 @@ function stopPanning(event) {
         suppressPersonClick = null;
       }, 300);
     }
-    tree = movePerson(tree, completedDrag.personId, viewMode, layoutSize.positions.get(completedDrag.personId));
+    tree = moveTimelinePerson(tree, completedDrag.personId, viewMode, layoutSize.positions.get(completedDrag.personId));
     try {
       saveTree(tree);
       showStatus("Person moved. Your tree is saved in this browser.");
@@ -624,7 +638,7 @@ viewport.addEventListener("pointerup", stopPanning);
 viewport.addEventListener("pointercancel", stopPanning);
 viewport.addEventListener("wheel", (event) => {
   event.preventDefault();
-  zoom(event.deltaY < 0 ? 0.9 : 1.1);
+  zoom(Math.exp(event.deltaY * 0.001), event.clientX);
 }, { passive: false });
 
 if ("ResizeObserver" in window) {
@@ -633,9 +647,21 @@ if ("ResizeObserver" in window) {
     else {
       const bounds = viewport.getBoundingClientRect();
       if (bounds.width > 0 && bounds.height > 0) {
-        const width = viewBox.height * bounds.width / bounds.height;
+        layoutSize.fitWidth = getFitWidth(bounds.width);
+        const pixelsPerYear = previousViewportWidth * YEAR_WIDTH / viewBox.width;
+        const minimumWidth = bounds.width * YEAR_WIDTH / MAX_PIXELS_PER_YEAR;
+        const width = Math.min(
+          layoutSize.fitWidth,
+          Math.max(minimumWidth, bounds.width * YEAR_WIDTH / pixelsPerYear)
+        );
         const centerX = viewBox.x + viewBox.width / 2;
-        setViewBox({ ...viewBox, x: centerX - width / 2, width });
+        setViewBox({
+          ...viewBox,
+          x: centerX - width / 2,
+          width,
+          height: bounds.height
+        });
+        previousViewportWidth = bounds.width;
       }
     }
   }).observe(viewport);

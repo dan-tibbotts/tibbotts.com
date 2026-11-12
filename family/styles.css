@@ -348,51 +348,32 @@ h1 {
   stroke-dasharray: 5 5;
 }
 
-.timeline-axis {
-  stroke: #889382;
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-
 .timeline-year-bar {
   fill: #eef0e8;
 }
 
 .timeline-year-line {
-  stroke: #e1e4dc;
-  stroke-width: 0.7;
-  opacity: 0.72;
+  stroke: #e0e3dd;
+  stroke-width: 1px;
   vector-effect: non-scaling-stroke;
 }
 
 .timeline-year-line.major {
-  stroke: #d9ded3;
-  stroke-width: 0.9;
+  stroke: #aeb8af;
+  stroke-width: 1px;
 }
 
 .timeline-year-label {
   fill: #435448;
   font-size: 14px;
-  text-anchor: end;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .timeline-bottom-axis {
   stroke: #889382;
   stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
-}
-
-.timeline-month-label {
-  fill: #69766b;
-  font-size: 11px;
-  font-weight: 600;
-  text-anchor: middle;
-}
-
-.timeline-axis-title {
-  fill: #69766b;
-  font-size: 10px;
-  font-weight: 600;
 }
 
 .person-card {

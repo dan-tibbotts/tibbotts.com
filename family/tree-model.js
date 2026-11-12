@@ -253,13 +253,20 @@ export function deletePerson(tree, personId) {
         Object.fromEntries(Object.entries(viewPositions).filter(([id]) => id !== personId))
       ]))
     : undefined;
+  const timelinePositions = tree.timelinePositions
+    ? Object.fromEntries(Object.entries(tree.timelinePositions).map(([view, viewPositions]) => [
+        view,
+        Object.fromEntries(Object.entries(viewPositions).filter(([id]) => id !== personId))
+      ]))
+    : undefined;
   return {
     ...tree,
     people: tree.people.filter((person) => person.id !== personId),
     relationships: tree.relationships.filter((relationship) =>
       relationship.from !== personId && relationship.to !== personId
     ),
-    ...(positions ? { positions } : {})
+    ...(positions ? { positions } : {}),
+    ...(timelinePositions ? { timelinePositions } : {})
   };
 }
 
@@ -277,6 +284,26 @@ export function movePerson(tree, personId, view, position) {
       ...tree.positions,
       [view]: {
         ...tree.positions?.[view],
+        [personId]: { x: position.x, y: position.y }
+      }
+    }
+  };
+}
+
+export function moveTimelinePerson(tree, personId, view, position) {
+  if (!["standard", "circle"].includes(view) ||
+      !tree.people.some((person) => person.id === personId) ||
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y)) {
+    throw new Error("Could not save this person's position.");
+  }
+
+  return {
+    ...tree,
+    timelinePositions: {
+      ...tree.timelinePositions,
+      [view]: {
+        ...tree.timelinePositions?.[view],
         [personId]: { x: position.x, y: position.y }
       }
     }

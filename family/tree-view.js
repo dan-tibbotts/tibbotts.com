@@ -1,17 +1,17 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 const CARD_WIDTH = 218;
 const CARD_HEIGHT = 112;
-const HORIZONTAL_GAP = 38;
-const PADDING = 52;
-const AXIS_WIDTH = 70;
-const TOP_PADDING = 42;
+export const YEAR_WIDTH = 100;
+const AXIS_PADDING = 80;
+const TOP_PADDING = 32;
+const VERTICAL_GAP = 14;
+const TIMELINE_HEIGHT = 56;
+export const MAX_PIXELS_PER_YEAR = 2400;
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
   "Unknown"
 ];
-const MONTH_GAP = 32;
-const BOTTOM_TIMELINE_HEIGHT = 54;
 const VIEW_SIZES = {
   standard: { width: CARD_WIDTH, height: CARD_HEIGHT },
   circle: { width: 164, height: 148 }
@@ -45,6 +45,28 @@ export function getBirthMonth(person) {
   return MONTHS.findIndex((month) =>
     month.toLowerCase().startsWith(match[1].slice(0, 3).toLowerCase())
   ) + 1;
+}
+
+function getBirthDateValue(person, year) {
+  const month = getBirthMonth(person);
+  if (month === null) return year + 0.5;
+
+  const isoDate = person.born.match(/\b(?:1[0-9]{3}|20[0-9]{2})-(0?[1-9]|1[0-2])-([1-3]?\d)\b/);
+  const namedDate = person.born.match(
+    /\b([1-3]?\d)\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i
+  );
+  const day = isoDate
+    ? Number(isoDate[2])
+    : namedDate
+      ? Number(namedDate[1])
+      : null;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const monthStart = (Date.UTC(year, month - 1, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+  const dayOffset = day === null || day < 1 || day > daysInMonth
+    ? daysInMonth / 2
+    : day - 1;
+  const daysInYear = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+  return year + (monthStart + dayOffset) / daysInYear;
 }
 
 export function inferBirthYears(tree) {
@@ -111,202 +133,213 @@ export function inferBirthYears(tree) {
 
 function layoutPeople(tree, viewMode) {
   const { width: nodeWidth, height: nodeHeight } = VIEW_SIZES[viewMode];
-  const yearSpacing = nodeHeight;
   const birthYears = inferBirthYears(tree);
   const minYear = Math.min(...Array.from(birthYears.values(), ({ year }) => year));
   const maxYear = Math.max(...Array.from(birthYears.values(), ({ year }) => year));
   const entries = tree.people.map((person) => {
     const birth = birthYears.get(person.id);
-    const birthMonth = getBirthMonth(person);
+    const date = getBirthDateValue(person, birth.year);
     return {
       person,
       year: birth.year,
-      month: birthMonth ?? 13,
-      y: TOP_PADDING + (birth.year - minYear) * yearSpacing - nodeHeight / 2
+      date,
+      x: AXIS_PADDING + (date - minYear) * YEAR_WIDTH,
+      legacyX: tree.positions?.[viewMode]?.[person.id]?.x
     };
   }).sort((first, second) =>
-    first.month - second.month ||
-    first.year - second.year ||
+    first.date - second.date ||
+    (Number.isFinite(first.legacyX) ? first.legacyX : 0) -
+      (Number.isFinite(second.legacyX) ? second.legacyX : 0) ||
     first.person.name.localeCompare(second.person.name)
   );
-  const entriesByMonth = new Map(MONTHS.map((_, index) => [index + 1, []]));
-  for (const entry of entries) entriesByMonth.get(entry.month).push(entry);
-
-  const monthColumns = new Map();
-  for (const [month, monthEntries] of entriesByMonth) {
-    const laneBottoms = [];
-    for (const entry of monthEntries) {
-      let lane = laneBottoms.findIndex((bottom) => bottom + 12 <= entry.y);
-      if (lane === -1) lane = laneBottoms.length;
-      laneBottoms[lane] = entry.y + nodeHeight;
-      entry.lane = lane;
-    }
-    const lanes = Math.max(1, laneBottoms.length);
-    const columnWidth = lanes * nodeWidth + (lanes - 1) * HORIZONTAL_GAP + MONTH_GAP * 2;
-    monthColumns.set(month, { width: columnWidth, lanes });
-  }
-
-  let nextColumnX = AXIS_WIDTH;
-  for (const month of entriesByMonth.keys()) {
-    const column = monthColumns.get(month);
-    column.left = nextColumnX;
-    column.right = nextColumnX + column.width;
-    column.label = MONTHS[month - 1];
-    nextColumnX += column.width;
-  }
-
-  const positions = new Map();
-  const columnBounds = new Map();
-
-  for (const entry of entries) {
-    const column = monthColumns.get(entry.month);
-    const left = column.left + MONTH_GAP;
-    const right = column.right - MONTH_GAP;
-    const defaultX = left + entry.lane * (nodeWidth + HORIZONTAL_GAP);
-    const savedX = tree.positions?.[viewMode]?.[entry.person.id]?.x;
-    positions.set(entry.person.id, {
-      x: Number.isFinite(savedX)
-        ? Math.min(right - nodeWidth, Math.max(left, savedX))
-        : defaultX,
-      y: entry.y
-    });
-    columnBounds.set(entry.person.id, { left, right });
-  }
-
-  const width = Math.max(720, nextColumnX + PADDING);
-  const height = Math.max(
-    380,
-    TOP_PADDING + (maxYear - minYear) * yearSpacing + nodeHeight +
-      BOTTOM_TIMELINE_HEIGHT + PADDING
-  );
-  const minX = Math.min(0, ...Array.from(positions.values(), (position) => position.x - PADDING));
-  const maxX = Math.max(width, ...Array.from(positions.values(), (position) => position.x + nodeWidth + PADDING));
-  const minY = Math.min(0, ...Array.from(positions.values(), (position) => position.y - PADDING));
-  const maxY = Math.max(height, ...Array.from(positions.values(), (position) => position.y + nodeHeight + PADDING));
+  const width = Math.max(720, (maxYear - minYear) * YEAR_WIDTH + AXIS_PADDING * 2);
   return {
-    positions,
-    columnBounds,
-    monthColumns,
+    positions: new Map(),
+    entries,
     birthYears,
     minYear,
     maxYear,
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY,
+    x: 0,
+    y: 0,
+    startX: AXIS_PADDING,
+    width,
+    height: Math.max(380, entries.length * (nodeHeight + VERTICAL_GAP)),
     mode: viewMode,
     nodeWidth,
     nodeHeight,
-    yearSpacing,
-    axisWidth: AXIS_WIDTH,
-    timelineBottom: height - PADDING
+    scale: 1,
+    manualPositions: tree.timelinePositions?.[viewMode] ?? {}
   };
 }
 
-function addMonthAxis(svg, layout) {
-  const timeline = createSvgElement("g", {
-    class: "timeline-month-axis",
-    "aria-hidden": "true"
-  });
-  const bottomY = layout.timelineBottom;
+const GRID_INTERVALS = [1 / 12, 1 / 4, 1 / 2, 1, 2, 5, 10, 25, 50, 100, 200, 500];
 
-  for (const [month, column] of layout.monthColumns) {
-    const centerX = (column.left + column.right) / 2;
-    const label = createSvgElement("text", {
-      class: "timeline-month-label",
-      x: centerX,
-      y: bottomY + 27
-    });
-    label.textContent = column.label;
-    timeline.append(label);
+export function chooseGridIntervals(pixelsPerYear, previousMajor = null, visibleYears = Infinity) {
+  const intervals = GRID_INTERVALS.filter((interval) => interval <= visibleYears);
+  const availableIntervals = intervals.length ? intervals : [GRID_INTERVALS[0]];
+  const targetSpacing = 140;
+  let majorIndex = availableIntervals.reduce((bestIndex, interval, index) =>
+    Math.abs(Math.log(pixelsPerYear * interval / targetSpacing)) <
+      Math.abs(Math.log(pixelsPerYear * availableIntervals[bestIndex] / targetSpacing))
+      ? index
+      : bestIndex,
+  0);
+  const previousIndex = availableIntervals.indexOf(previousMajor);
+  if (previousIndex !== -1) {
+    const previousSpacing = pixelsPerYear * previousMajor;
+    if (previousSpacing >= 100 && previousSpacing <= 180) majorIndex = previousIndex;
   }
-  timeline.append(createSvgElement("line", {
-    class: "timeline-bottom-axis",
-    x1: AXIS_WIDTH,
-    y1: bottomY,
-    x2: layout.x + layout.width,
-    y2: bottomY
-  }));
-  const axisTitle = createSvgElement("text", {
-    class: "timeline-axis-title",
-    x: 0,
-    y: bottomY + 27
-  });
-  axisTitle.textContent = "Birth month";
-  timeline.append(axisTitle);
-
-  svg.append(timeline);
+  const major = availableIntervals[majorIndex];
+  const minor = availableIntervals.filter((interval) =>
+    interval < major &&
+    Number.isInteger(major / interval) &&
+    pixelsPerYear * interval >= 30
+  ).at(-1) ?? null;
+  return { major, minor };
 }
 
-function getYearInterval(pixelsPerYear) {
-  let interval = 1;
-  while (pixelsPerYear * interval < 44) {
-    const scale = interval / (10 ** Math.floor(Math.log10(interval)));
-    interval *= scale === 1 ? 2 : scale === 2 ? 2.5 : 2;
+function getGridDates(start, end, interval) {
+  if (interval < 1) {
+    const monthsPerInterval = Math.round(interval * 12);
+    const firstMonth = Math.ceil((Math.floor(start) - 1) * 12 / monthsPerInterval) * monthsPerInterval;
+    const lastMonth = (Math.floor(end) + 2) * 12;
+    const dates = [];
+    for (let monthIndex = firstMonth; monthIndex <= lastMonth; monthIndex += monthsPerInterval) {
+      const year = Math.floor(monthIndex / 12);
+      const month = ((monthIndex % 12) + 12) % 12;
+      const dayOfYear = (Date.UTC(year, month, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+      const daysInYear = (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86_400_000;
+      const value = year + dayOfYear / daysInYear;
+      if (value >= start && value <= end) dates.push({ value, month, year });
+    }
+    return dates;
   }
-  return interval;
+
+  const firstYear = Math.ceil(start / interval) * interval;
+  const lastYear = Math.floor(end / interval) * interval;
+  const dates = [];
+  for (let year = firstYear; year <= lastYear; year += interval) {
+    dates.push({ value: year, year });
+  }
+  return dates;
+}
+
+function updatePersonTransforms(svg, layout) {
+  for (const node of svg.querySelectorAll(".person-node")) {
+    const position = layout.positions.get(node.dataset.personId);
+    if (position) {
+      const screenX = (position.x - layout.camera.x) * layout.scale;
+      const screenY = position.y - layout.camera.y;
+      node.setAttribute("transform", `translate(${screenX} ${screenY})`);
+    }
+  }
+}
+
+function reflowPeople(svg, tree, layout, viewBox, viewportWidth, viewportHeight) {
+  const scale = viewportWidth / viewBox.width;
+  layout.camera = viewBox;
+  layout.scale = scale;
+  const laneRightEdges = [];
+  layout.positions.clear();
+
+  for (const entry of layout.entries) {
+    const saved = layout.manualPositions[entry.person.id];
+    const screenX = (entry.x - viewBox.x) * scale;
+    let lane = laneRightEdges.findIndex((right) => right + VERTICAL_GAP <= screenX);
+    if (lane === -1) lane = laneRightEdges.length;
+    laneRightEdges[lane] = screenX + layout.nodeWidth;
+    layout.positions.set(entry.person.id, {
+      x: entry.x,
+      y: Number.isFinite(saved?.y)
+        ? saved.y
+        : TOP_PADDING + lane * (layout.nodeHeight + VERTICAL_GAP)
+    });
+  }
+
+  layout.height = Math.max(
+    viewportHeight,
+    ...Array.from(layout.positions.values(), ({ y }) => y + layout.nodeHeight + VERTICAL_GAP)
+  );
+  updatePersonTransforms(svg, layout);
+  updateConnectors(svg, tree, layout);
 }
 
 export function updateTimeline(svg, layout, viewBox, viewportWidth, viewportHeight) {
   svg.querySelector(".timeline-year-axis")?.remove();
   if (!layout.birthYears || viewportWidth <= 0 || viewportHeight <= 0) return;
+  const scale = viewportWidth / viewBox.width;
+  reflowPeople(svg, layout.tree, layout, viewBox, viewportWidth, viewportHeight);
 
   const timeline = createSvgElement("g", {
     class: "timeline-year-axis",
     "aria-hidden": "true"
   });
-  const left = viewBox.x + (AXIS_WIDTH * viewBox.width) / viewportWidth;
-  const right = viewBox.x + viewBox.width;
-  const top = viewBox.y;
-  const bottom = viewBox.y + viewBox.height;
-  const horizontalScale = viewBox.width / viewportWidth;
-  const verticalScale = viewBox.height / viewportHeight;
-  const pixelsPerYear = layout.yearSpacing * viewportHeight / viewBox.height;
-  const interval = getYearInterval(pixelsPerYear);
-  const firstVisibleYear = layout.minYear + (top - TOP_PADDING) / layout.yearSpacing;
-  const lastVisibleYear = layout.minYear + (bottom - TOP_PADDING) / layout.yearSpacing;
-  const firstYear = Math.max(
-    Math.ceil(layout.minYear / interval) * interval,
-    Math.ceil(firstVisibleYear / interval) * interval
+  const barTop = viewportHeight - TIMELINE_HEIGHT;
+  const pixelsPerYear = scale * YEAR_WIDTH;
+  const start = Math.max(0, (viewBox.x - AXIS_PADDING) / YEAR_WIDTH + layout.minYear);
+  const end = (viewBox.x + viewBox.width - AXIS_PADDING) / YEAR_WIDTH + layout.minYear;
+  const { major, minor } = chooseGridIntervals(
+    pixelsPerYear,
+    layout.majorInterval,
+    end - start
   );
-  const lastYear = Math.min(
-    Math.floor(layout.maxYear / interval) * interval,
-    Math.floor(lastVisibleYear / interval) * interval
-  );
+  layout.majorInterval = major;
 
   timeline.append(createSvgElement("rect", {
     class: "timeline-year-bar",
-    x: viewBox.x,
-    y: top,
-    width: left - viewBox.x,
-    height: bottom - top
+    x: 0,
+    y: barTop,
+    width: viewportWidth,
+    height: TIMELINE_HEIGHT
   }));
-  timeline.append(createSvgElement("line", {
-    class: "timeline-axis",
-    x1: left,
-    y1: top,
-    x2: left,
-    y2: bottom
-  }));
-  for (let year = firstYear; year <= lastYear; year += interval) {
-    const y = TOP_PADDING + (year - layout.minYear) * layout.yearSpacing;
-    timeline.append(createSvgElement("line", {
-      class: `timeline-year-line${year % 5 === 0 ? " major" : ""}`,
-      x1: left,
-      y1: y,
-      x2: right,
-      y2: y
-    }));
+  const gridLines = new Map();
+  for (const date of (minor ? getGridDates(start, end, minor) : [])) {
+    gridLines.set(date.value, { ...date, major: false });
+  }
+  for (const date of getGridDates(start, end, major)) {
+    gridLines.set(date.value, { ...date, major: true });
+  }
+  let lastLabelRight = -Infinity;
+  for (const date of gridLines.values()) {
+    const worldX = AXIS_PADDING + (date.value - layout.minYear) * YEAR_WIDTH;
+    const x = (worldX - viewBox.x) * scale;
+    const line = createSvgElement("line", {
+      class: `timeline-year-line${date.major ? " major" : ""}`,
+      x1: x,
+      y1: 0,
+      x2: x,
+      y2: barTop
+    });
+    timeline.append(line);
+    if (!date.major) continue;
+
+    const labelText = date.month === undefined
+      ? String(date.year)
+      : `${MONTHS[date.month].slice(0, 3)} ${date.year}`;
+    const screenX = x;
+    const labelWidth = labelText.length * 8;
+    const labelLeft = screenX - labelWidth / 2;
+    const labelRight = screenX + labelWidth / 2;
+    if (labelLeft < 0 || labelRight > viewportWidth || labelLeft < lastLabelRight + 8) continue;
+
     const label = createSvgElement("text", {
       class: "timeline-year-label",
-      x: left - 8 * horizontalScale,
-      y: y + 5 * verticalScale,
-      "font-size": 14 * verticalScale
+      x,
+      y: barTop + 22,
+      "text-anchor": "middle"
     });
-    label.textContent = String(year);
+    label.textContent = labelText;
     timeline.append(label);
+    lastLabelRight = labelRight;
   }
-  svg.insertBefore(timeline, svg.firstChild);
+  timeline.append(createSvgElement("line", {
+    class: "timeline-bottom-axis",
+    x1: 0,
+    y1: barTop,
+    x2: viewportWidth,
+    y2: barTop
+  }));
+  svg.append(timeline);
 }
 
 function getConnectionAnchor(position, other, dimensions, mode) {
@@ -318,7 +351,10 @@ function getConnectionAnchor(position, other, dimensions, mode) {
   const dy = otherY - centerY;
 
   if (mode === "circle") {
-    const scale = 34 / Math.max(1, Math.hypot(dx, dy));
+    const scale = 1 / Math.sqrt(
+      (dx / (dimensions.width / 2)) ** 2 +
+      (dy / (dimensions.height / 2)) ** 2
+    );
     return { x: centerX + dx * scale, y: centerY + dy * scale };
   }
 
@@ -330,17 +366,29 @@ function getConnectionAnchor(position, other, dimensions, mode) {
   return { x: centerX + dx * scale, y: centerY + dy * scale };
 }
 
-function addConnectors(svg, tree, layout) {
-  const connectorGroup = createSvgElement("g", {
-    class: "tree-connectors",
-    "aria-hidden": "true"
-  });
+function updateConnectors(svg, tree, layout) {
+  let connectorGroup = svg.querySelector(".tree-connectors");
+  if (!connectorGroup) {
+    connectorGroup = createSvgElement("g", {
+      class: "tree-connectors",
+      "aria-hidden": "true"
+    });
+  }
   const dimensions = VIEW_SIZES[layout.mode];
+  let pathIndex = 0;
 
   for (const relationship of tree.relationships) {
-    const first = layout.positions.get(relationship.from);
-    const second = layout.positions.get(relationship.to);
-    if (!first || !second) continue;
+    const firstPosition = layout.positions.get(relationship.from);
+    const secondPosition = layout.positions.get(relationship.to);
+    if (!firstPosition || !secondPosition) continue;
+    const first = {
+      x: (firstPosition.x - layout.camera.x) * layout.scale,
+      y: firstPosition.y - layout.camera.y
+    };
+    const second = {
+      x: (secondPosition.x - layout.camera.x) * layout.scale,
+      y: secondPosition.y - layout.camera.y
+    };
 
     const start = getConnectionAnchor(first, second, dimensions, layout.mode);
     const end = getConnectionAnchor(second, first, dimensions, layout.mode);
@@ -350,14 +398,26 @@ function addConnectors(svg, tree, layout) {
       ? `M ${start.x} ${start.y} C ${start.x} ${start.y + bend * direction}, ${end.x} ${end.y - bend * direction}, ${end.x} ${end.y}`
       : `M ${start.x} ${start.y} C ${start.x + (end.x - start.x) / 3} ${start.y}, ${end.x - (end.x - start.x) / 3} ${end.y}, ${end.x} ${end.y}`;
 
-    connectorGroup.append(createSvgElement("path", {
-      d: path,
-      class: `tree-connector ${relationship.type}${relationship.uncertain ? " uncertain" : ""}`
-    }));
+    let connector = connectorGroup.children[pathIndex];
+    if (!connector) {
+      connector = createSvgElement("path");
+      connectorGroup.append(connector);
+    }
+    connector.setAttribute("d", path);
+    connector.setAttribute(
+      "class",
+      `tree-connector ${relationship.type}${relationship.uncertain ? " uncertain" : ""}`
+    );
+    pathIndex += 1;
   }
 
-  const timeline = svg.querySelector(".timeline-year-axis");
-  svg.insertBefore(connectorGroup, timeline ? timeline.nextSibling : svg.firstChild);
+  for (const connector of Array.from(connectorGroup.children).slice(pathIndex)) {
+    connector.remove();
+  }
+  if (!connectorGroup.parentNode) {
+    const firstNode = svg.querySelector(".person-node");
+    svg.insertBefore(connectorGroup, firstNode ?? svg.firstChild);
+  }
 }
 
 function addPersonNode(svg, person, position, mode, birthYear) {
@@ -538,10 +598,11 @@ export function renderTree(svg, tree, viewMode = "standard") {
   }
 
   const layout = layoutPeople(tree, viewMode);
+  layout.tree = tree;
+  layout.camera = { x: 0, y: 0, width: layout.width, height: layout.height };
+  reflowPeople(svg, tree, layout, layout.camera, layout.width, layout.height);
   svg.setAttribute("viewBox", `${layout.x} ${layout.y} ${layout.width} ${layout.height}`);
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  addMonthAxis(svg, layout);
-  addConnectors(svg, tree, layout);
+  svg.setAttribute("preserveAspectRatio", "none");
   for (const person of tree.people) {
     addPersonNode(
       svg,
@@ -556,10 +617,13 @@ export function renderTree(svg, tree, viewMode = "standard") {
 
 export function movePersonNode(svg, tree, layout, personId, position) {
   layout.positions.set(personId, position);
+  layout.manualPositions[personId] = { ...position };
   const node = Array.from(svg.querySelectorAll(".person-node"))
     .find((personNode) => personNode.dataset.personId === personId);
   if (!node) return;
-  node.setAttribute("transform", `translate(${position.x} ${position.y})`);
-  svg.querySelector(".tree-connectors")?.remove();
-  addConnectors(svg, tree, layout);
+  node.setAttribute(
+    "transform",
+    `translate(${(position.x - layout.camera.x) * layout.scale} ${position.y - layout.camera.y})`
+  );
+  updateConnectors(svg, tree, layout);
 }
