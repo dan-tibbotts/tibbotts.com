@@ -6,6 +6,13 @@ const PADDING = 52;
 const AXIS_WIDTH = 70;
 const TOP_PADDING = 42;
 const YEAR_SPACING = 6;
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+  "Unknown"
+];
+const MONTH_GAP = 18;
+const BOTTOM_TIMELINE_HEIGHT = 54;
 const VIEW_SIZES = {
   standard: { width: CARD_WIDTH, height: CARD_HEIGHT },
   circle: { width: 164, height: 148 }
@@ -22,6 +29,23 @@ function createSvgElement(tag, attributes = {}) {
 function readBirthYear(person) {
   const match = person.born.match(/\b(1[0-9]{3}|20[0-9]{2})\b/);
   return match ? Number(match[1]) : null;
+}
+
+export function getBirthMonth(person) {
+  const savedMonth = Number(person.birthMonth);
+  if (Number.isInteger(savedMonth) && savedMonth >= 1 && savedMonth <= 12) {
+    return savedMonth;
+  }
+  if (/\bbapti[sz]ed\b/i.test(person.born)) return null;
+
+  const isoDate = person.born.match(/\b(?:1[0-9]{3}|20[0-9]{2})-(0?[1-9]|1[0-2])-\d{1,2}\b/);
+  if (isoDate) return Number(isoDate[1]);
+
+  const match = person.born.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i);
+  if (!match) return null;
+  return MONTHS.findIndex((month) =>
+    month.toLowerCase().startsWith(match[1].slice(0, 3).toLowerCase())
+  ) + 1;
 }
 
 export function inferBirthYears(tree) {
@@ -93,35 +117,67 @@ function layoutPeople(tree, viewMode) {
   const maxYear = Math.max(...Array.from(birthYears.values(), ({ year }) => year));
   const entries = tree.people.map((person) => {
     const birth = birthYears.get(person.id);
+    const birthMonth = getBirthMonth(person);
     return {
       person,
       year: birth.year,
+      month: birthMonth ?? 13,
       y: TOP_PADDING + (birth.year - minYear) * YEAR_SPACING - nodeHeight / 2
     };
   }).sort((first, second) =>
-    first.year - second.year || first.person.name.localeCompare(second.person.name)
+    first.month - second.month ||
+    first.year - second.year ||
+    first.person.name.localeCompare(second.person.name)
   );
-  const laneBottoms = [];
-  const positions = new Map();
+  const entriesByMonth = new Map(MONTHS.map((_, index) => [index + 1, []]));
+  for (const entry of entries) entriesByMonth.get(entry.month).push(entry);
 
-  for (const entry of entries) {
-    let lane = laneBottoms.findIndex((bottom) => bottom + 12 <= entry.y);
-    if (lane === -1) lane = laneBottoms.length;
-    laneBottoms[lane] = entry.y + nodeHeight;
-    positions.set(entry.person.id, {
-      x: tree.positions?.[viewMode]?.[entry.person.id]?.x ??
-        AXIS_WIDTH + lane * (nodeWidth + HORIZONTAL_GAP),
-      y: entry.y
-    });
+  const monthColumns = new Map();
+  for (const [month, monthEntries] of entriesByMonth) {
+    const laneBottoms = [];
+    for (const entry of monthEntries) {
+      let lane = laneBottoms.findIndex((bottom) => bottom + 12 <= entry.y);
+      if (lane === -1) lane = laneBottoms.length;
+      laneBottoms[lane] = entry.y + nodeHeight;
+      entry.lane = lane;
+    }
+    const lanes = Math.max(1, laneBottoms.length);
+    const columnWidth = lanes * nodeWidth + (lanes - 1) * HORIZONTAL_GAP + MONTH_GAP * 2;
+    monthColumns.set(month, { width: columnWidth, lanes });
   }
 
-  const width = Math.max(
-    720,
-    AXIS_WIDTH + laneBottoms.length * (nodeWidth + HORIZONTAL_GAP) + PADDING
-  );
+  let nextColumnX = AXIS_WIDTH;
+  for (const month of entriesByMonth.keys()) {
+    const column = monthColumns.get(month);
+    column.left = nextColumnX;
+    column.right = nextColumnX + column.width;
+    column.label = MONTHS[month - 1];
+    nextColumnX += column.width;
+  }
+
+  const positions = new Map();
+  const columnBounds = new Map();
+
+  for (const entry of entries) {
+    const column = monthColumns.get(entry.month);
+    const left = column.left + MONTH_GAP;
+    const right = column.right - MONTH_GAP;
+    const defaultX = left + entry.lane * (nodeWidth + HORIZONTAL_GAP);
+    const savedX = tree.positions?.[viewMode]?.[entry.person.id]?.x;
+    positions.set(entry.person.id, {
+      x: Number.isFinite(savedX)
+        ? Math.min(right - nodeWidth, Math.max(left, savedX))
+        : defaultX,
+      y: entry.y
+    });
+    columnBounds.set(entry.person.id, { left, right });
+  }
+
+  const width = Math.max(720, nextColumnX + PADDING);
   const height = Math.max(
     380,
-    TOP_PADDING + (maxYear - minYear) * YEAR_SPACING + nodeHeight + PADDING
+    TOP_PADDING + (maxYear - minYear) * YEAR_SPACING + nodeHeight +
+      BOTTOM_TIMELINE_HEIGHT + PADDING
   );
   const minX = Math.min(0, ...Array.from(positions.values(), (position) => position.x - PADDING));
   const maxX = Math.max(width, ...Array.from(positions.values(), (position) => position.x + nodeWidth + PADDING));
@@ -129,6 +185,8 @@ function layoutPeople(tree, viewMode) {
   const maxY = Math.max(height, ...Array.from(positions.values(), (position) => position.y + nodeHeight + PADDING));
   return {
     positions,
+    columnBounds,
+    monthColumns,
     birthYears,
     minYear,
     maxYear,
@@ -139,7 +197,8 @@ function layoutPeople(tree, viewMode) {
     mode: viewMode,
     nodeWidth,
     nodeHeight,
-    axisWidth: AXIS_WIDTH
+    axisWidth: AXIS_WIDTH,
+    timelineBottom: height - PADDING
   };
 }
 
@@ -150,12 +209,13 @@ function addTimeline(svg, layout) {
   });
   const firstY = TOP_PADDING;
   const lastY = TOP_PADDING + (layout.maxYear - layout.minYear) * YEAR_SPACING;
+  const bottomY = layout.timelineBottom;
   timeline.append(createSvgElement("line", {
     class: "timeline-axis",
     x1: AXIS_WIDTH - 12,
     y1: firstY,
     x2: AXIS_WIDTH - 12,
-    y2: lastY
+    y2: bottomY
   }));
 
   for (let year = layout.minYear; year <= layout.maxYear; year += 1) {
@@ -178,6 +238,47 @@ function addTimeline(svg, layout) {
       timeline.append(label);
     }
   }
+
+  for (const [month, column] of layout.monthColumns) {
+    const centerX = (column.left + column.right) / 2;
+    timeline.append(createSvgElement("line", {
+      class: "timeline-month-line",
+      x1: column.left,
+      y1: TOP_PADDING,
+      x2: column.left,
+      y2: bottomY
+    }));
+    const label = createSvgElement("text", {
+      class: "timeline-month-label",
+      x: centerX,
+      y: bottomY + 27
+    });
+    label.textContent = column.label;
+    timeline.append(label);
+    if (month === 13) {
+      timeline.append(createSvgElement("line", {
+        class: "timeline-month-line",
+        x1: column.right,
+        y1: TOP_PADDING,
+        x2: column.right,
+        y2: bottomY
+      }));
+    }
+  }
+  timeline.append(createSvgElement("line", {
+    class: "timeline-bottom-axis",
+    x1: AXIS_WIDTH - 12,
+    y1: bottomY,
+    x2: layout.width - PADDING,
+    y2: bottomY
+  }));
+  const axisTitle = createSvgElement("text", {
+    class: "timeline-axis-title",
+    x: 8,
+    y: bottomY + 27
+  });
+  axisTitle.textContent = "Birth month";
+  timeline.append(axisTitle);
 
   svg.append(timeline);
   svg.insertBefore(timeline, svg.firstChild);

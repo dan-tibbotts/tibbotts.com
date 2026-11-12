@@ -209,6 +209,7 @@ export function addPerson(tree, person) {
     id: crypto.randomUUID(),
     name: cleanName,
     born: person.born.trim(),
+    birthMonth: person.birthMonth ? Number(person.birthMonth) : null,
     place: person.place.trim(),
     story: person.story.trim(),
     photo: person.photo ?? ""
@@ -236,6 +237,7 @@ export function updatePerson(tree, personId, changes) {
           ...person,
           name: cleanName,
           born: changes.born.trim(),
+          birthMonth: changes.birthMonth ? Number(changes.birthMonth) : null,
           place: changes.place.trim(),
           story: changes.story.trim(),
           photo: changes.photo ?? person.photo ?? ""

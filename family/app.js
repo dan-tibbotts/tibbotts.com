@@ -8,7 +8,7 @@ import {
   saveTree,
   updatePerson
 } from "./tree-model.js?v=5";
-import { inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=4";
+import { getBirthMonth, inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=5";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -87,8 +87,9 @@ function render() {
   for (const person of tree.people) {
     const option = document.createElement("option");
     const birth = birthYears.get(person.id);
+    const month = getBirthMonth(person);
     option.value = person.name;
-    option.label = `${person.name} (${birth.estimated ? "~" : ""}${birth.year})`;
+    option.label = `${person.name} (${birth.estimated ? "~" : ""}${birth.year}, ${month ? new Date(2000, month - 1).toLocaleString("en", { month: "long" }) : "unknown month"})`;
     searchOptions.append(option);
   }
   fitTree();
@@ -248,6 +249,7 @@ function openEditPerson(personId) {
   personForm.elements.born.value = person.born;
   personForm.elements.place.value = person.place;
   personForm.elements.story.value = person.story;
+  personForm.elements.birthMonth.value = String(getBirthMonth(person) ?? "");
   personForm.dataset.photo = person.photo ?? "";
   photoInput.value = "";
   updatePhotoPreview(personForm.dataset.photo);
@@ -333,6 +335,7 @@ personForm.addEventListener("submit", async (event) => {
   const details = {
     name: values.get("name"),
     born: values.get("born"),
+    birthMonth: values.get("birthMonth"),
     place: values.get("place"),
     story: values.get("story"),
     photo: personForm.dataset.photo ?? ""
@@ -475,9 +478,9 @@ viewport.addEventListener("pointermove", (event) => {
     }
     const position = {
       x: Math.min(
-        layoutSize.x + layoutSize.width - layoutSize.nodeWidth - 12,
+        layoutSize.columnBounds.get(pointerStart.personId).right - layoutSize.nodeWidth,
         Math.max(
-          layoutSize.axisWidth,
+          layoutSize.columnBounds.get(pointerStart.personId).left,
           pointerStart.position.x + (event.clientX - pointerStart.x) * (viewBox.width / bounds.width)
         )
       ),
