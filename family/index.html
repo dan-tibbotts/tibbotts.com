@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f6f5f0">
+  <title>Family tree — tibbotts.com</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <a class="home-link" href="../index.html" aria-label="Back to tibbotts.com">tibbotts.com</a>
+      <div class="heading-row">
+        <div>
+          <p class="eyebrow">A little family history</p>
+          <h1>Our family tree</h1>
+          <p class="intro">Explore the branches, and add a few of your own.</p>
+        </div>
+        <button class="button button-primary" id="add-person" type="button">
+          <span aria-hidden="true">＋</span> Add a person
+        </button>
+      </div>
+    </header>
+
+    <section class="tree-section" aria-label="Family tree">
+      <div class="tree-toolbar">
+        <p id="tree-status" role="status" aria-live="polite"></p>
+        <div class="tree-controls" aria-label="Tree view controls">
+          <span class="view-hint">Drag to move · Scroll or use the buttons to zoom</span>
+          <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <button class="zoom-level" id="zoom-level" type="button" aria-label="Fit the whole tree">Fit</button>
+          <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">＋</button>
+        </div>
+      </div>
+      <div class="tree-viewport" id="tree-viewport">
+        <svg id="family-tree" role="group" aria-label="Interactive family tree"></svg>
+        <p class="empty-state" id="empty-state" hidden>
+          Your tree is ready for its first branch. Add a person to get started.
+        </p>
+      </div>
+      <p class="tree-caption">Select a person to see their story and connections.</p>
+    </section>
+  </main>
+
+  <dialog class="dialog" id="person-dialog" aria-labelledby="person-name">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">Meet someone</p>
+        <h2 id="person-name"></h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close aria-label="Close">×</button>
+    </div>
+    <dl class="person-facts">
+      <div><dt>Born</dt><dd id="person-born"></dd></div>
+      <div><dt>From</dt><dd id="person-place"></dd></div>
+      <div class="story-fact"><dt>Their story</dt><dd id="person-story"></dd></div>
+      <div class="story-fact"><dt>Family</dt><dd id="person-family"></dd></div>
+    </dl>
+    <div class="dialog-actions">
+      <button class="button button-secondary" type="button" data-close>Done</button>
+      <button class="button button-primary" id="person-add-connection" type="button">＋ Add a connection</button>
+    </div>
+  </dialog>
+
+  <dialog class="dialog" id="add-person-dialog" aria-labelledby="add-person-title">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">Grow your tree</p>
+        <h2 id="add-person-title">Add a person</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close aria-label="Close">×</button>
+    </div>
+    <form id="person-form">
+      <label>
+        Name <span class="required-mark" aria-hidden="true">*</span>
+        <input name="name" autocomplete="name" maxlength="80" required>
+      </label>
+      <div class="form-row">
+        <label>
+          Born
+          <input name="born" maxlength="80" placeholder="e.g. 1952">
+        </label>
+        <label>
+          From
+          <input name="place" maxlength="100" placeholder="Town or place">
+        </label>
+      </div>
+      <label>
+        Their story
+        <textarea name="story" rows="3" maxlength="500" placeholder="A favorite memory, a little history…"></textarea>
+      </label>
+      <p class="form-error" id="person-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" type="button" data-close>Cancel</button>
+        <button class="button button-primary" type="submit">Add to the tree</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" id="connection-dialog" aria-labelledby="connection-title">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">Make a connection</p>
+        <h2 id="connection-title">Connect family</h2>
+      </div>
+      <button class="icon-button dialog-close" type="button" data-close aria-label="Close">×</button>
+    </div>
+    <form id="connection-form">
+      <label>
+        This person
+        <select name="person" required></select>
+      </label>
+      <label>
+        Is
+        <select name="relationship">
+          <option value="parent">a parent of</option>
+          <option value="child">a child of</option>
+          <option value="partner">a partner of</option>
+        </select>
+      </label>
+      <label>
+        This family member
+        <select name="relative" required></select>
+      </label>
+      <p class="form-note">Parent and child connections shape the generations in your tree.</p>
+      <p class="form-error" id="connection-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" type="button" data-close>Cancel</button>
+        <button class="button button-primary" type="submit">Save connection</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
