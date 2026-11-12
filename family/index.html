@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#f6f5f0">
   <title>Family tree — tibbotts.com</title>
-  <link rel="stylesheet" href="./styles.css?v=3">
-  <script type="module" src="./app.js?v=4"></script>
+  <link rel="stylesheet" href="./styles.css?v=4">
+  <script type="module" src="./app.js?v=5"></script>
 </head>
 <body>
   <main class="app-shell">
@@ -28,6 +28,12 @@
     <section class="tree-section" aria-label="Family tree">
       <div class="tree-toolbar">
         <p id="tree-status" role="status" aria-live="polite"></p>
+        <form class="person-search" id="person-search-form" role="search">
+          <label class="visually-hidden" for="person-search">Search family members</label>
+          <input id="person-search" type="search" list="family-members" placeholder="Find a family member" autocomplete="off">
+          <datalist id="family-members"></datalist>
+          <button type="submit" aria-label="Search family members">Search</button>
+        </form>
         <div class="tree-controls" aria-label="Tree view controls">
           <label class="view-switch-label" for="view-mode">View</label>
           <select class="view-switch" id="view-mode" aria-label="Choose tree view">
@@ -60,7 +66,7 @@
       <div class="story-fact"><dt>Their story</dt><dd id="person-story"></dd></div>
       <div class="story-fact">
         <dt>Connections</dt>
-        <dd><ul class="connection-list" id="person-connections"></ul></dd>
+        <dd><div class="connection-groups" id="person-connections"></div></dd>
       </div>
     </dl>
     <div class="dialog-actions">

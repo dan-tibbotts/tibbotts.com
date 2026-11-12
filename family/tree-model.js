@@ -283,29 +283,73 @@ export function movePerson(tree, personId, view, position) {
 
 export function getPersonConnections(tree, personId) {
   const peopleById = new Map(tree.people.map((person) => [person.id, person]));
-  const connections = [];
+  const connections = {
+    Parents: [],
+    Partners: [],
+    Siblings: [],
+    Children: []
+  };
+  const parentIds = new Set();
+  const childIds = new Set();
+  const siblingParentIds = new Set();
+
   for (const relationship of tree.relationships) {
-    let relativeId;
-    let label;
     if (relationship.type === "partner" &&
         (relationship.from === personId || relationship.to === personId)) {
-      relativeId = relationship.from === personId ? relationship.to : relationship.from;
-      label = "Partner";
-    } else if (relationship.type === "parent" && relationship.from === personId) {
-      relativeId = relationship.to;
-      label = "Child";
-    } else if (relationship.type === "parent" && relationship.to === personId) {
-      relativeId = relationship.from;
-      label = "Parent";
-    } else {
+      const relativeId = relationship.from === personId ? relationship.to : relationship.from;
+      const person = peopleById.get(relativeId);
+      if (person) connections.Partners.push({ person, uncertain: Boolean(relationship.uncertain) });
       continue;
     }
 
-    const person = peopleById.get(relativeId);
-    if (person) connections.push({
-      person,
-      label: relationship.uncertain ? `Possibly ${label.toLowerCase()}` : label
-    });
+    if (relationship.type !== "parent") continue;
+    if (relationship.to === personId) parentIds.add(relationship.from);
+    if (relationship.from === personId) childIds.add(relationship.to);
+    if (relationship.to === personId && !relationship.uncertain) {
+      siblingParentIds.add(relationship.from);
+    }
+  }
+
+  for (const parentId of parentIds) {
+    const person = peopleById.get(parentId);
+    if (!person) continue;
+    const uncertain = tree.relationships.some((relationship) =>
+      relationship.type === "parent" &&
+      relationship.from === parentId &&
+      relationship.to === personId &&
+      relationship.uncertain
+    );
+    connections.Parents.push({ person, uncertain });
+  }
+  for (const childId of childIds) {
+    const person = peopleById.get(childId);
+    if (!person) continue;
+    const uncertain = tree.relationships.some((relationship) =>
+      relationship.type === "parent" &&
+      relationship.from === personId &&
+      relationship.to === childId &&
+      relationship.uncertain
+    );
+    connections.Children.push({ person, uncertain });
+  }
+
+  const siblingIds = new Set();
+  for (const parentId of siblingParentIds) {
+    for (const relationship of tree.relationships) {
+      if (relationship.type === "parent" &&
+          relationship.from === parentId &&
+          relationship.to !== personId) {
+        siblingIds.add(relationship.to);
+      }
+    }
+  }
+  for (const siblingId of siblingIds) {
+    const person = peopleById.get(siblingId);
+    if (person) connections.Siblings.push({ person, uncertain: false });
+  }
+
+  for (const relatives of Object.values(connections)) {
+    relatives.sort((first, second) => first.person.name.localeCompare(second.person.name));
   }
   return connections;
 }

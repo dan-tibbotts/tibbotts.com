@@ -199,6 +199,52 @@ h1 {
   font-size: 0.78rem;
 }
 
+.person-search {
+  display: flex;
+  min-width: 180px;
+  max-width: 280px;
+  flex: 1 1 220px;
+  gap: 5px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.person-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #e4e6de;
+  border-radius: 8px;
+  background: #fffefa;
+  color: #4a5b50;
+  font-size: 0.76rem;
+}
+
+.person-search button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid #e4e6de;
+  border-radius: 8px;
+  background: #fffefa;
+  color: #4a5b50;
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.person-search button:hover {
+  border-color: #bac9b8;
+  background: #f5f7f1;
+}
+
 .tree-controls {
   display: flex;
   align-items: center;
@@ -578,6 +624,20 @@ h1 {
   list-style: none;
 }
 
+.connection-groups {
+  display: grid;
+  gap: 15px;
+}
+
+.connection-group h3 {
+  margin: 0 0 6px;
+  color: #72816e;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .connection-link {
   display: flex;
   width: 100%;
@@ -744,6 +804,12 @@ h1 {
   .tree-controls {
     width: 100%;
     justify-content: end;
+  }
+
+  .person-search {
+    width: 100%;
+    max-width: none;
+    flex-basis: auto;
   }
 
   .view-hint {

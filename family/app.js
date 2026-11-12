@@ -7,7 +7,7 @@ import {
   movePerson,
   saveTree,
   updatePerson
-} from "./tree-model.js?v=4";
+} from "./tree-model.js?v=5";
 import { movePersonNode, renderTree } from "./tree-view.js?v=3";
 
 const svg = document.querySelector("#family-tree");
@@ -18,6 +18,9 @@ const addPersonDialog = document.querySelector("#add-person-dialog");
 const connectionDialog = document.querySelector("#connection-dialog");
 const personForm = document.querySelector("#person-form");
 const connectionForm = document.querySelector("#connection-form");
+const searchForm = document.querySelector("#person-search-form");
+const searchInput = document.querySelector("#person-search");
+const searchOptions = document.querySelector("#family-members");
 const photoInput = document.querySelector("#person-photo");
 const photoPreview = document.querySelector("#photo-preview");
 const photoPreviewImage = document.querySelector("#photo-preview-image");
@@ -79,6 +82,12 @@ function fitTree() {
 
 function render() {
   layoutSize = renderTree(svg, tree, viewMode);
+  searchOptions.replaceChildren();
+  for (const person of tree.people) {
+    const option = document.createElement("option");
+    option.value = person.name;
+    searchOptions.append(option);
+  }
   fitTree();
 }
 
@@ -120,27 +129,80 @@ function openPerson(personId) {
   document.querySelector("#person-story").textContent = person.story;
   const connections = document.querySelector("#person-connections");
   connections.replaceChildren();
-  for (const connection of getPersonConnections(tree, personId)) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.className = "connection-link";
-    button.type = "button";
-    button.dataset.openPerson = connection.person.id;
-    button.append(document.createTextNode(connection.person.name));
-    const relation = document.createElement("span");
-    relation.textContent = connection.label;
-    button.append(relation);
-    item.append(button);
-    connections.append(item);
+  const connectionGroups = getPersonConnections(tree, personId);
+  for (const [heading, relatives] of Object.entries(connectionGroups)) {
+    if (relatives.length === 0) continue;
+
+    const group = document.createElement("section");
+    group.className = "connection-group";
+    const title = document.createElement("h3");
+    title.textContent = heading;
+    group.append(title);
+    const list = document.createElement("ul");
+    list.className = "connection-list";
+    for (const connection of relatives) {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.className = "connection-link";
+      button.type = "button";
+      button.dataset.openPerson = connection.person.id;
+      button.append(document.createTextNode(connection.person.name));
+      if (connection.uncertain) {
+        const note = document.createElement("span");
+        note.textContent = "Possible";
+        button.append(note);
+      }
+      item.append(button);
+      list.append(item);
+    }
+    group.append(list);
+    connections.append(group);
   }
   if (connections.childElementCount === 0) {
-    const item = document.createElement("li");
-    item.className = "no-connections";
-    item.textContent = "No connections yet";
-    connections.append(item);
+    const empty = document.createElement("p");
+    empty.className = "no-connections";
+    empty.textContent = "No connections yet";
+    connections.append(empty);
   }
   personDialog.showModal();
 }
+
+function focusPerson(personId) {
+  const position = layoutSize.positions.get(personId);
+  if (!position) return;
+  const dimensions = viewMode === "circle"
+    ? { width: 164, height: 148 }
+    : { width: 218, height: 112 };
+  const centerX = position.x + dimensions.width / 2;
+  const centerY = position.y + dimensions.height / 2;
+  setViewBox({
+    x: centerX - viewBox.width / 2,
+    y: centerY - viewBox.height / 2,
+    width: viewBox.width,
+    height: viewBox.height
+  });
+  hasNavigated = true;
+}
+
+searchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const query = searchInput.value.trim().toLocaleLowerCase();
+  if (!query) return;
+
+  const matches = tree.people.filter((person) =>
+    person.name.toLocaleLowerCase().includes(query)
+  );
+  const person = matches.find((item) => item.name.toLocaleLowerCase() === query) ??
+    matches.find((item) => item.name.toLocaleLowerCase().startsWith(query));
+  if (!person) {
+    showStatus(`No family member found for “${searchInput.value.trim()}”.`);
+    return;
+  }
+
+  focusPerson(person.id);
+  showStatus(`Found ${person.name}.`);
+  openPerson(person.id);
+});
 
 function openConnectionDialog(personId, relativeId) {
   if (tree.people.length < 2) {
