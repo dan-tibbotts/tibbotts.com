@@ -6,8 +6,8 @@ import {
   loadTree,
   saveTree,
   updatePerson
-} from "./tree-model.js";
-import { renderTree } from "./tree-view.js";
+} from "./tree-model.js?v=2";
+import { renderTree } from "./tree-view.js?v=2";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
