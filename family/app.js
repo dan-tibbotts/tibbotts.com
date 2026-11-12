@@ -8,7 +8,7 @@ import {
   saveTree,
   updatePerson
 } from "./tree-model.js?v=5";
-import { getBirthMonth, inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=6";
+import { getBirthMonth, inferBirthYears, movePersonNode, renderTree, updateTimeline } from "./tree-view.js?v=7";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -64,6 +64,8 @@ function setViewBox(nextViewBox) {
     "viewBox",
     `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`
   );
+  const bounds = viewport.getBoundingClientRect();
+  updateTimeline(svg, layoutSize, viewBox, bounds.width, bounds.height);
 }
 
 function fitTree(showWholeTree = false) {
@@ -628,6 +630,14 @@ viewport.addEventListener("wheel", (event) => {
 if ("ResizeObserver" in window) {
   new ResizeObserver(() => {
     if (!hasNavigated) fitTree();
+    else {
+      const bounds = viewport.getBoundingClientRect();
+      if (bounds.width > 0 && bounds.height > 0) {
+        const width = viewBox.height * bounds.width / bounds.height;
+        const centerX = viewBox.x + viewBox.width / 2;
+        setViewBox({ ...viewBox, x: centerX - width / 2, width });
+      }
+    }
   }).observe(viewport);
 }
 

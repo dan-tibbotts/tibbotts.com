@@ -203,59 +203,15 @@ function layoutPeople(tree, viewMode) {
   };
 }
 
-function addTimeline(svg, layout) {
+function addMonthAxis(svg, layout) {
   const timeline = createSvgElement("g", {
-    class: "timeline",
+    class: "timeline-month-axis",
     "aria-hidden": "true"
   });
-  const firstY = TOP_PADDING;
-  const lastY = TOP_PADDING + (layout.maxYear - layout.minYear) * layout.yearSpacing;
   const bottomY = layout.timelineBottom;
-  timeline.append(createSvgElement("line", {
-    class: "timeline-axis",
-    x1: AXIS_WIDTH - 12,
-    y1: firstY,
-    x2: AXIS_WIDTH - 12,
-    y2: bottomY
-  }));
-
-  for (let year = layout.minYear; year <= layout.maxYear; year += 1) {
-    const y = TOP_PADDING + (year - layout.minYear) * layout.yearSpacing;
-    const major = year % 5 === 0;
-    timeline.append(createSvgElement("line", {
-      class: `timeline-year-line${major ? " major" : ""}`,
-      x1: AXIS_WIDTH - 12,
-      y1: y,
-      x2: layout.x + layout.width,
-      y2: y
-    }));
-    const label = createSvgElement("text", {
-      class: "timeline-year-label",
-      x: AXIS_WIDTH - 22,
-      y: y + 4
-    });
-    label.textContent = String(year);
-    timeline.append(label);
-    for (const column of layout.monthColumns.values()) {
-      const monthLabel = createSvgElement("text", {
-        class: "timeline-year-label timeline-month-year-label",
-        x: column.left + 4,
-        y: y + 4
-      });
-      monthLabel.textContent = String(year);
-      timeline.append(monthLabel);
-    }
-  }
 
   for (const [month, column] of layout.monthColumns) {
     const centerX = (column.left + column.right) / 2;
-    timeline.append(createSvgElement("line", {
-      class: "timeline-month-line",
-      x1: column.left,
-      y1: TOP_PADDING,
-      x2: column.left,
-      y2: bottomY
-    }));
     const label = createSvgElement("text", {
       class: "timeline-month-label",
       x: centerX,
@@ -263,32 +219,83 @@ function addTimeline(svg, layout) {
     });
     label.textContent = column.label;
     timeline.append(label);
-    if (month === 13) {
-      timeline.append(createSvgElement("line", {
-        class: "timeline-month-line",
-        x1: column.right,
-        y1: TOP_PADDING,
-        x2: column.right,
-        y2: bottomY
-      }));
-    }
   }
   timeline.append(createSvgElement("line", {
     class: "timeline-bottom-axis",
-    x1: AXIS_WIDTH - 12,
+    x1: AXIS_WIDTH,
     y1: bottomY,
-    x2: layout.width - PADDING,
+    x2: layout.x + layout.width,
     y2: bottomY
   }));
   const axisTitle = createSvgElement("text", {
     class: "timeline-axis-title",
-    x: 8,
+    x: 0,
     y: bottomY + 27
   });
   axisTitle.textContent = "Birth month";
   timeline.append(axisTitle);
 
   svg.append(timeline);
+}
+
+function getYearInterval(pixelsPerYear) {
+  let interval = 1;
+  while (pixelsPerYear * interval < 44) {
+    const scale = interval / (10 ** Math.floor(Math.log10(interval)));
+    interval *= scale === 1 ? 2 : scale === 2 ? 2.5 : 2;
+  }
+  return interval;
+}
+
+export function updateTimeline(svg, layout, viewBox, viewportWidth, viewportHeight) {
+  svg.querySelector(".timeline-year-axis")?.remove();
+  if (!layout.birthYears || viewportWidth <= 0 || viewportHeight <= 0) return;
+
+  const timeline = createSvgElement("g", {
+    class: "timeline-year-axis",
+    "aria-hidden": "true"
+  });
+  const left = viewBox.x + (AXIS_WIDTH * viewBox.width) / viewportWidth;
+  const right = viewBox.x + viewBox.width;
+  const top = viewBox.y;
+  const bottom = viewBox.y + viewBox.height;
+  const pixelsPerYear = layout.yearSpacing * viewportHeight / viewBox.height;
+  const interval = getYearInterval(pixelsPerYear);
+  const firstVisibleYear = layout.minYear + (top - TOP_PADDING) / layout.yearSpacing;
+  const lastVisibleYear = layout.minYear + (bottom - TOP_PADDING) / layout.yearSpacing;
+  const firstYear = Math.max(
+    Math.ceil(layout.minYear / interval) * interval,
+    Math.ceil(firstVisibleYear / interval) * interval
+  );
+  const lastYear = Math.min(
+    Math.floor(layout.maxYear / interval) * interval,
+    Math.floor(lastVisibleYear / interval) * interval
+  );
+
+  timeline.append(createSvgElement("line", {
+    class: "timeline-axis",
+    x1: left,
+    y1: top,
+    x2: left,
+    y2: bottom
+  }));
+  for (let year = firstYear; year <= lastYear; year += interval) {
+    const y = TOP_PADDING + (year - layout.minYear) * layout.yearSpacing;
+    timeline.append(createSvgElement("line", {
+      class: `timeline-year-line${year % 5 === 0 ? " major" : ""}`,
+      x1: left,
+      y1: y,
+      x2: right,
+      y2: y
+    }));
+    const label = createSvgElement("text", {
+      class: "timeline-year-label",
+      x: left - 9,
+      y: y + 4
+    });
+    label.textContent = String(year);
+    timeline.append(label);
+  }
   svg.insertBefore(timeline, svg.firstChild);
 }
 
@@ -339,7 +346,7 @@ function addConnectors(svg, tree, layout) {
     }));
   }
 
-  const timeline = svg.querySelector(".timeline");
+  const timeline = svg.querySelector(".timeline-year-axis");
   svg.insertBefore(connectorGroup, timeline ? timeline.nextSibling : svg.firstChild);
 }
 
@@ -523,7 +530,7 @@ export function renderTree(svg, tree, viewMode = "standard") {
   const layout = layoutPeople(tree, viewMode);
   svg.setAttribute("viewBox", `${layout.x} ${layout.y} ${layout.width} ${layout.height}`);
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-  addTimeline(svg, layout);
+  addMonthAxis(svg, layout);
   addConnectors(svg, tree, layout);
   for (const person of tree.people) {
     addPersonNode(

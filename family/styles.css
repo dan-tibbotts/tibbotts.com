@@ -294,9 +294,6 @@ h1 {
   flex: 1 1 auto;
   overflow: hidden;
   background-color: #fbfaf6;
-  background-image: radial-gradient(#e4e4db 0.8px, transparent 0.8px);
-  background-position: 12px 12px;
-  background-size: 22px 22px;
   touch-action: none;
   cursor: grab;
 }
@@ -358,14 +355,15 @@ h1 {
 }
 
 .timeline-year-line {
-  stroke: #e7e8e1;
-  stroke-width: 0.8;
+  stroke: #e1e4dc;
+  stroke-width: 0.7;
+  opacity: 0.72;
   vector-effect: non-scaling-stroke;
 }
 
 .timeline-year-line.major {
-  stroke: #d3d8cd;
-  stroke-width: 1.2;
+  stroke: #d9ded3;
+  stroke-width: 0.9;
 }
 
 .timeline-year-label {
@@ -375,17 +373,7 @@ h1 {
   paint-order: stroke;
   stroke: #fbfaf6;
   stroke-linejoin: round;
-  stroke-width: 3px;
-}
-
-.timeline-month-year-label {
-  text-anchor: start;
-}
-
-.timeline-month-line {
-  stroke: #ecece5;
-  stroke-width: 0.8;
-  vector-effect: non-scaling-stroke;
+  stroke-width: 4px;
 }
 
 .timeline-bottom-axis {
