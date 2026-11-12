@@ -351,6 +351,29 @@ h1 {
   stroke-dasharray: 5 5;
 }
 
+.timeline-axis {
+  stroke: #889382;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline-year-line {
+  stroke: #e7e8e1;
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline-year-line.major {
+  stroke: #d3d8cd;
+  stroke-width: 1.2;
+}
+
+.timeline-year-label {
+  fill: #69766b;
+  font-size: 10px;
+  text-anchor: end;
+}
+
 .person-card {
   fill: #fffefa;
   stroke: #e7e7df;

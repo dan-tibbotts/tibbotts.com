@@ -2,8 +2,10 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const CARD_WIDTH = 218;
 const CARD_HEIGHT = 112;
 const HORIZONTAL_GAP = 38;
-const VERTICAL_GAP = 104;
 const PADDING = 52;
+const AXIS_WIDTH = 70;
+const TOP_PADDING = 42;
+const YEAR_SPACING = 6;
 const VIEW_SIZES = {
   standard: { width: CARD_WIDTH, height: CARD_HEIGHT },
   circle: { width: 164, height: 148 }
@@ -17,65 +19,168 @@ function createSvgElement(tag, attributes = {}) {
   return element;
 }
 
-function getGenerations(tree) {
-  const levels = new Map(tree.people.map((person) => [person.id, 0]));
-  for (let pass = 0; pass < tree.people.length; pass += 1) {
-    for (const relationship of tree.relationships) {
-      if (relationship.type !== "parent") continue;
-      const parentLevel = levels.get(relationship.from);
-      const childLevel = levels.get(relationship.to);
-      if (parentLevel !== undefined && childLevel !== undefined) {
-        levels.set(relationship.to, Math.max(childLevel, parentLevel + 1));
-      }
+function readBirthYear(person) {
+  const match = person.born.match(/\b(1[0-9]{3}|20[0-9]{2})\b/);
+  return match ? Number(match[1]) : null;
+}
+
+export function inferBirthYears(tree) {
+  const years = new Map();
+  for (const person of tree.people) {
+    const year = readBirthYear(person);
+    if (year !== null) years.set(person.id, { year, estimated: false });
+  }
+
+  const parentsByChild = new Map(tree.people.map((person) => [person.id, []]));
+  const childrenByParent = new Map(tree.people.map((person) => [person.id, []]));
+  const partnersByPerson = new Map(tree.people.map((person) => [person.id, []]));
+  for (const relationship of tree.relationships) {
+    if (relationship.type === "parent") {
+      parentsByChild.get(relationship.to)?.push(relationship.from);
+      childrenByParent.get(relationship.from)?.push(relationship.to);
+    } else if (relationship.type === "partner") {
+      partnersByPerson.get(relationship.from)?.push(relationship.to);
+      partnersByPerson.get(relationship.to)?.push(relationship.from);
     }
   }
-  return levels;
+
+  for (let pass = 0; pass < tree.people.length; pass += 1) {
+    let changed = false;
+    for (const person of tree.people) {
+      if (years.has(person.id)) continue;
+
+      const parentYears = parentsByChild.get(person.id)
+        .map((parentId) => years.get(parentId)?.year)
+        .filter(Number.isFinite);
+      const childYears = childrenByParent.get(person.id)
+        .map((childId) => years.get(childId)?.year)
+        .filter(Number.isFinite);
+      const partnerYears = partnersByPerson.get(person.id)
+        .map((partnerId) => years.get(partnerId)?.year)
+        .filter(Number.isFinite);
+
+      let year;
+      if (parentYears.length > 0) {
+        year = Math.max(...parentYears) + 18;
+      } else if (childYears.length > 0) {
+        year = Math.min(...childYears) - 18;
+      } else if (partnerYears.length > 0) {
+        year = partnerYears[0];
+      }
+
+      if (year !== undefined) {
+        years.set(person.id, { year, estimated: true });
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  const knownYears = Array.from(years.values(), ({ year }) => year);
+  const fallbackYear = knownYears.length
+    ? Math.round(knownYears.reduce((sum, year) => sum + year, 0) / knownYears.length)
+    : 1900;
+  for (const person of tree.people) {
+    if (!years.has(person.id)) years.set(person.id, { year: fallbackYear, estimated: true });
+  }
+  return years;
 }
 
 function layoutPeople(tree, viewMode) {
   const { width: nodeWidth, height: nodeHeight } = VIEW_SIZES[viewMode];
-  const generations = getGenerations(tree);
-  const groups = new Map();
-  for (const person of tree.people) {
-    const level = generations.get(person.id) ?? 0;
-    if (!groups.has(level)) groups.set(level, []);
-    groups.get(level).push(person);
-  }
-
-  for (const people of groups.values()) {
-    people.sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  const maxCount = Math.max(1, ...Array.from(groups.values(), (people) => people.length));
-  const maxLevel = Math.max(0, ...groups.keys());
-  const width = Math.max(720, PADDING * 2 + maxCount * nodeWidth + (maxCount - 1) * HORIZONTAL_GAP);
-  const height = PADDING * 2 + (maxLevel + 1) * nodeHeight + maxLevel * VERTICAL_GAP;
+  const birthYears = inferBirthYears(tree);
+  const minYear = Math.min(...Array.from(birthYears.values(), ({ year }) => year));
+  const maxYear = Math.max(...Array.from(birthYears.values(), ({ year }) => year));
+  const entries = tree.people.map((person) => {
+    const birth = birthYears.get(person.id);
+    return {
+      person,
+      year: birth.year,
+      y: TOP_PADDING + (birth.year - minYear) * YEAR_SPACING - nodeHeight / 2
+    };
+  }).sort((first, second) =>
+    first.year - second.year || first.person.name.localeCompare(second.person.name)
+  );
+  const laneBottoms = [];
   const positions = new Map();
 
-  for (const [level, people] of groups) {
-    const rowWidth = people.length * nodeWidth + (people.length - 1) * HORIZONTAL_GAP;
-    const startX = (width - rowWidth) / 2;
-    people.forEach((person, index) => {
-      const defaultPosition = {
-        x: startX + index * (nodeWidth + HORIZONTAL_GAP),
-        y: PADDING + level * (nodeHeight + VERTICAL_GAP)
-      };
-      positions.set(person.id, tree.positions?.[viewMode]?.[person.id] ?? defaultPosition);
+  for (const entry of entries) {
+    let lane = laneBottoms.findIndex((bottom) => bottom + 12 <= entry.y);
+    if (lane === -1) lane = laneBottoms.length;
+    laneBottoms[lane] = entry.y + nodeHeight;
+    positions.set(entry.person.id, {
+      x: tree.positions?.[viewMode]?.[entry.person.id]?.x ??
+        AXIS_WIDTH + lane * (nodeWidth + HORIZONTAL_GAP),
+      y: entry.y
     });
   }
 
-  const minX = Math.min(PADDING, ...Array.from(positions.values(), (position) => position.x));
-  const minY = Math.min(PADDING, ...Array.from(positions.values(), (position) => position.y));
-  const maxX = Math.max(width - PADDING, ...Array.from(positions.values(), (position) => position.x + nodeWidth));
-  const maxY = Math.max(height - PADDING, ...Array.from(positions.values(), (position) => position.y + nodeHeight));
+  const width = Math.max(
+    720,
+    AXIS_WIDTH + laneBottoms.length * (nodeWidth + HORIZONTAL_GAP) + PADDING
+  );
+  const height = Math.max(
+    380,
+    TOP_PADDING + (maxYear - minYear) * YEAR_SPACING + nodeHeight + PADDING
+  );
+  const minX = Math.min(0, ...Array.from(positions.values(), (position) => position.x - PADDING));
+  const maxX = Math.max(width, ...Array.from(positions.values(), (position) => position.x + nodeWidth + PADDING));
+  const minY = Math.min(0, ...Array.from(positions.values(), (position) => position.y - PADDING));
+  const maxY = Math.max(height, ...Array.from(positions.values(), (position) => position.y + nodeHeight + PADDING));
   return {
     positions,
-    x: minX - PADDING,
-    y: minY - PADDING,
-    width: maxX - minX + PADDING * 2,
-    height: maxY - minY + PADDING * 2,
-    mode: viewMode
+    birthYears,
+    minYear,
+    maxYear,
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    mode: viewMode,
+    nodeWidth,
+    nodeHeight,
+    axisWidth: AXIS_WIDTH
   };
+}
+
+function addTimeline(svg, layout) {
+  const timeline = createSvgElement("g", {
+    class: "timeline",
+    "aria-hidden": "true"
+  });
+  const firstY = TOP_PADDING;
+  const lastY = TOP_PADDING + (layout.maxYear - layout.minYear) * YEAR_SPACING;
+  timeline.append(createSvgElement("line", {
+    class: "timeline-axis",
+    x1: AXIS_WIDTH - 12,
+    y1: firstY,
+    x2: AXIS_WIDTH - 12,
+    y2: lastY
+  }));
+
+  for (let year = layout.minYear; year <= layout.maxYear; year += 1) {
+    const y = TOP_PADDING + (year - layout.minYear) * YEAR_SPACING;
+    const major = year % 5 === 0;
+    timeline.append(createSvgElement("line", {
+      class: `timeline-year-line${major ? " major" : ""}`,
+      x1: AXIS_WIDTH - 12,
+      y1: y,
+      x2: layout.width - PADDING,
+      y2: y
+    }));
+    if (major) {
+      const label = createSvgElement("text", {
+        class: "timeline-year-label",
+        x: AXIS_WIDTH - 22,
+        y: y + 4
+      });
+      label.textContent = String(year);
+      timeline.append(label);
+    }
+  }
+
+  svg.append(timeline);
+  svg.insertBefore(timeline, svg.firstChild);
 }
 
 function getConnectionAnchor(position, other, dimensions, mode) {
@@ -125,26 +230,28 @@ function addConnectors(svg, tree, layout) {
     }));
   }
 
-  svg.insertBefore(connectorGroup, svg.firstChild);
+  const timeline = svg.querySelector(".timeline");
+  svg.insertBefore(connectorGroup, timeline ? timeline.nextSibling : svg.firstChild);
 }
 
-function addPersonNode(svg, person, position, mode) {
+function addPersonNode(svg, person, position, mode, birthYear) {
   const dimensions = VIEW_SIZES[mode];
   const node = createSvgElement("g", {
     class: "person-node",
     transform: `translate(${position.x} ${position.y})`,
     role: "group",
     tabindex: "0",
-    "aria-label": `${person.name}${person.born ? `, born ${person.born}` : ""}`,
+    "aria-label": `${person.name}, ${birthYear.estimated ? "estimated born" : "born"} ${birthYear.year}`,
+    "data-birth-year": birthYear.year,
     "data-person-id": person.id
   });
   const title = createSvgElement("title");
   title.textContent = person.name;
   node.append(title);
   if (mode === "circle") {
-    addCirclePersonContent(node, person);
+    addCirclePersonContent(node, person, birthYear);
   } else {
-    addStandardPersonContent(node, person);
+    addStandardPersonContent(node, person, birthYear);
   }
 
   const addAction = createActionButton("add", "Add a connected person", dimensions.width - 39, 15, "+");
@@ -153,7 +260,7 @@ function addPersonNode(svg, person, position, mode) {
   svg.append(node);
 }
 
-function addStandardPersonContent(node, person) {
+function addStandardPersonContent(node, person, birthYear) {
   node.append(createSvgElement("rect", {
     class: "person-card",
     width: CARD_WIDTH,
@@ -187,11 +294,11 @@ function addStandardPersonContent(node, person) {
   name.textContent = person.name.length > 19 ? `${person.name.slice(0, 18)}…` : person.name;
   node.append(name);
   const born = createSvgElement("text", { class: "person-born", x: 82, y: 64 });
-  born.textContent = person.born ? `Born ${person.born}` : "Family member";
+  born.textContent = birthYear.estimated ? `Est. ${birthYear.year}` : `Born ${birthYear.year}`;
   node.append(born);
 }
 
-function addCirclePersonContent(node, person) {
+function addCirclePersonContent(node, person, birthYear) {
   const centerX = VIEW_SIZES.circle.width / 2;
   const centerY = 45;
   node.append(createSvgElement("circle", {
@@ -242,7 +349,7 @@ function addCirclePersonContent(node, person) {
     x: centerX,
     y: 124
   });
-  born.textContent = person.born ? `Born ${person.born}` : "Family member";
+  born.textContent = birthYear.estimated ? `Est. ${birthYear.year}` : `Born ${birthYear.year}`;
   node.append(born);
 }
 
@@ -307,9 +414,16 @@ export function renderTree(svg, tree, viewMode = "standard") {
   const layout = layoutPeople(tree, viewMode);
   svg.setAttribute("viewBox", `${layout.x} ${layout.y} ${layout.width} ${layout.height}`);
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  addTimeline(svg, layout);
   addConnectors(svg, tree, layout);
   for (const person of tree.people) {
-    addPersonNode(svg, person, layout.positions.get(person.id), viewMode);
+    addPersonNode(
+      svg,
+      person,
+      layout.positions.get(person.id),
+      viewMode,
+      layout.birthYears.get(person.id)
+    );
   }
   return layout;
 }

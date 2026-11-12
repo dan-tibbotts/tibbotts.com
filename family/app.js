@@ -8,7 +8,7 @@ import {
   saveTree,
   updatePerson
 } from "./tree-model.js?v=5";
-import { movePersonNode, renderTree } from "./tree-view.js?v=3";
+import { inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=4";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -83,9 +83,12 @@ function fitTree() {
 function render() {
   layoutSize = renderTree(svg, tree, viewMode);
   searchOptions.replaceChildren();
+  const birthYears = inferBirthYears(tree);
   for (const person of tree.people) {
     const option = document.createElement("option");
+    const birth = birthYears.get(person.id);
     option.value = person.name;
+    option.label = `${person.name} (${birth.estimated ? "~" : ""}${birth.year})`;
     searchOptions.append(option);
   }
   fitTree();
@@ -470,18 +473,15 @@ viewport.addEventListener("pointermove", (event) => {
     if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 4) {
       pointerStart.moved = true;
     }
-    const dimensions = viewMode === "circle"
-      ? { width: 164, height: 148 }
-      : { width: 218, height: 112 };
     const position = {
       x: Math.min(
-        layoutSize.x + layoutSize.width - dimensions.width - 12,
-        Math.max(layoutSize.x + 12, pointerStart.position.x + (event.clientX - pointerStart.x) * (viewBox.width / bounds.width))
+        layoutSize.x + layoutSize.width - layoutSize.nodeWidth - 12,
+        Math.max(
+          layoutSize.axisWidth,
+          pointerStart.position.x + (event.clientX - pointerStart.x) * (viewBox.width / bounds.width)
+        )
       ),
-      y: Math.min(
-        layoutSize.y + layoutSize.height - dimensions.height - 12,
-        Math.max(layoutSize.y + 12, pointerStart.position.y + (event.clientY - pointerStart.y) * (viewBox.height / bounds.height))
-      )
+      y: pointerStart.position.y
     };
     movePersonNode(svg, tree, layoutSize, pointerStart.personId, position);
     hasNavigated = true;
