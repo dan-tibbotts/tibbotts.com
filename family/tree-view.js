@@ -5,7 +5,6 @@ const HORIZONTAL_GAP = 38;
 const PADDING = 52;
 const AXIS_WIDTH = 70;
 const TOP_PADDING = 42;
-const YEAR_SPACING = 6;
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -112,6 +111,7 @@ export function inferBirthYears(tree) {
 
 function layoutPeople(tree, viewMode) {
   const { width: nodeWidth, height: nodeHeight } = VIEW_SIZES[viewMode];
+  const yearSpacing = nodeHeight;
   const birthYears = inferBirthYears(tree);
   const minYear = Math.min(...Array.from(birthYears.values(), ({ year }) => year));
   const maxYear = Math.max(...Array.from(birthYears.values(), ({ year }) => year));
@@ -122,7 +122,7 @@ function layoutPeople(tree, viewMode) {
       person,
       year: birth.year,
       month: birthMonth ?? 13,
-      y: TOP_PADDING + (birth.year - minYear) * YEAR_SPACING - nodeHeight / 2
+      y: TOP_PADDING + (birth.year - minYear) * yearSpacing - nodeHeight / 2
     };
   }).sort((first, second) =>
     first.month - second.month ||
@@ -176,7 +176,7 @@ function layoutPeople(tree, viewMode) {
   const width = Math.max(720, nextColumnX + PADDING);
   const height = Math.max(
     380,
-    TOP_PADDING + (maxYear - minYear) * YEAR_SPACING + nodeHeight +
+    TOP_PADDING + (maxYear - minYear) * yearSpacing + nodeHeight +
       BOTTOM_TIMELINE_HEIGHT + PADDING
   );
   const minX = Math.min(0, ...Array.from(positions.values(), (position) => position.x - PADDING));
@@ -197,6 +197,7 @@ function layoutPeople(tree, viewMode) {
     mode: viewMode,
     nodeWidth,
     nodeHeight,
+    yearSpacing,
     axisWidth: AXIS_WIDTH,
     timelineBottom: height - PADDING
   };
@@ -208,7 +209,7 @@ function addTimeline(svg, layout) {
     "aria-hidden": "true"
   });
   const firstY = TOP_PADDING;
-  const lastY = TOP_PADDING + (layout.maxYear - layout.minYear) * YEAR_SPACING;
+  const lastY = TOP_PADDING + (layout.maxYear - layout.minYear) * layout.yearSpacing;
   const bottomY = layout.timelineBottom;
   timeline.append(createSvgElement("line", {
     class: "timeline-axis",
@@ -219,7 +220,7 @@ function addTimeline(svg, layout) {
   }));
 
   for (let year = layout.minYear; year <= layout.maxYear; year += 1) {
-    const y = TOP_PADDING + (year - layout.minYear) * YEAR_SPACING;
+    const y = TOP_PADDING + (year - layout.minYear) * layout.yearSpacing;
     const major = year % 5 === 0;
     timeline.append(createSvgElement("line", {
       class: `timeline-year-line${major ? " major" : ""}`,
