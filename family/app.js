@@ -8,7 +8,7 @@ import {
   saveTree,
   updatePerson
 } from "./tree-model.js?v=5";
-import { getBirthMonth, inferBirthYears, movePersonNode, renderTree, updateTimeline } from "./tree-view.js?v=7";
+import { getBirthMonth, inferBirthYears, movePersonNode, renderTree, updateTimeline } from "./tree-view.js?v=8";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");

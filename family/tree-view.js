@@ -259,6 +259,8 @@ export function updateTimeline(svg, layout, viewBox, viewportWidth, viewportHeig
   const right = viewBox.x + viewBox.width;
   const top = viewBox.y;
   const bottom = viewBox.y + viewBox.height;
+  const horizontalScale = viewBox.width / viewportWidth;
+  const verticalScale = viewBox.height / viewportHeight;
   const pixelsPerYear = layout.yearSpacing * viewportHeight / viewBox.height;
   const interval = getYearInterval(pixelsPerYear);
   const firstVisibleYear = layout.minYear + (top - TOP_PADDING) / layout.yearSpacing;
@@ -272,6 +274,13 @@ export function updateTimeline(svg, layout, viewBox, viewportWidth, viewportHeig
     Math.floor(lastVisibleYear / interval) * interval
   );
 
+  timeline.append(createSvgElement("rect", {
+    class: "timeline-year-bar",
+    x: viewBox.x,
+    y: top,
+    width: left - viewBox.x,
+    height: bottom - top
+  }));
   timeline.append(createSvgElement("line", {
     class: "timeline-axis",
     x1: left,
@@ -290,8 +299,9 @@ export function updateTimeline(svg, layout, viewBox, viewportWidth, viewportHeig
     }));
     const label = createSvgElement("text", {
       class: "timeline-year-label",
-      x: left - 9,
-      y: y + 4
+      x: left - 8 * horizontalScale,
+      y: y + 5 * verticalScale,
+      "font-size": 14 * verticalScale
     });
     label.textContent = String(year);
     timeline.append(label);

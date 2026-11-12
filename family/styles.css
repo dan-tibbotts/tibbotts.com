@@ -354,6 +354,10 @@ h1 {
   vector-effect: non-scaling-stroke;
 }
 
+.timeline-year-bar {
+  fill: #eef0e8;
+}
+
 .timeline-year-line {
   stroke: #e1e4dc;
   stroke-width: 0.7;
@@ -367,13 +371,9 @@ h1 {
 }
 
 .timeline-year-label {
-  fill: #69766b;
-  font-size: 10px;
+  fill: #435448;
+  font-size: 14px;
   text-anchor: end;
-  paint-order: stroke;
-  stroke: #fbfaf6;
-  stroke-linejoin: round;
-  stroke-width: 4px;
 }
 
 .timeline-bottom-axis {
