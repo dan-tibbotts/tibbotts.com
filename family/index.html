@@ -37,9 +37,6 @@
       </div>
       <div class="tree-viewport" id="tree-viewport">
         <svg id="family-tree" role="group" aria-label="Interactive family tree"></svg>
-        <p class="empty-state" id="empty-state" hidden>
-          Your tree is ready for its first branch. Add a person to get started.
-        </p>
       </div>
       <p class="tree-caption">Select a person to see their story and connections.</p>
     </section>
@@ -57,10 +54,14 @@
       <div><dt>Born</dt><dd id="person-born"></dd></div>
       <div><dt>From</dt><dd id="person-place"></dd></div>
       <div class="story-fact"><dt>Their story</dt><dd id="person-story"></dd></div>
-      <div class="story-fact"><dt>Family</dt><dd id="person-family"></dd></div>
+      <div class="story-fact">
+        <dt>Connections</dt>
+        <dd><ul class="connection-list" id="person-connections"></ul></dd>
+      </div>
     </dl>
     <div class="dialog-actions">
       <button class="button button-secondary" type="button" data-close>Done</button>
+      <button class="button button-secondary" id="person-edit" type="button">Edit details</button>
       <button class="button button-primary" id="person-add-connection" type="button">＋ Add a connection</button>
     </div>
   </dialog>
@@ -95,7 +96,7 @@
       <p class="form-error" id="person-error" role="alert"></p>
       <div class="dialog-actions">
         <button class="button button-secondary" type="button" data-close>Cancel</button>
-        <button class="button button-primary" type="submit">Add to the tree</button>
+        <button class="button button-primary" id="person-submit" type="submit">Add to the tree</button>
       </div>
     </form>
   </dialog>

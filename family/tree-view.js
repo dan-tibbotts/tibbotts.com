@@ -100,9 +100,9 @@ function addPersonNode(svg, person, position) {
   const node = createSvgElement("g", {
     class: "person-node",
     transform: `translate(${position.x} ${position.y})`,
-    role: "button",
+    role: "group",
     tabindex: "0",
-    "aria-label": `View ${person.name}${person.born ? `, born ${person.born}` : ""}`,
+    "aria-label": `${person.name}${person.born ? `, born ${person.born}` : ""}`,
     "data-person-id": person.id
   });
   const title = createSvgElement("title");
@@ -144,12 +144,68 @@ function addPersonNode(svg, person, position) {
   });
   born.textContent = person.born ? `Born ${person.born}` : "Family member";
   node.append(born);
+
+  const addAction = createActionButton("add", "Add a connected person", 177, "+");
+  const deleteAction = createActionButton("delete", `Delete ${person.name}`, 200, "×");
+  node.append(addAction, deleteAction);
   svg.append(node);
+}
+
+function createActionButton(action, label, x, icon) {
+  const button = createSvgElement("g", {
+    class: `person-action person-action-${action}`,
+    "data-action": action,
+    role: "button",
+    tabindex: "0",
+    "aria-label": label
+  });
+  button.append(createSvgElement("circle", { cx: x, cy: 18, r: 10 }));
+  const text = createSvgElement("text", { x, y: 22 });
+  text.textContent = icon;
+  button.append(text);
+  return button;
+}
+
+function renderEmptyTree(svg) {
+  const group = createSvgElement("g", {
+    class: "empty-person",
+    role: "button",
+    tabindex: "0",
+    "data-action": "create",
+    "aria-label": "Add the first person to your family tree"
+  });
+  group.append(createSvgElement("rect", {
+    class: "empty-person-card",
+    x: 225,
+    y: 120,
+    width: 270,
+    height: 140,
+    rx: 15
+  }));
+  group.append(createSvgElement("circle", {
+    class: "empty-person-plus",
+    cx: 360,
+    cy: 160,
+    r: 18
+  }));
+  const plus = createSvgElement("text", { class: "empty-person-icon", x: 360, y: 166 });
+  plus.textContent = "+";
+  group.append(plus);
+  const title = createSvgElement("text", { class: "empty-person-title", x: 360, y: 208 });
+  title.textContent = "Add the first person";
+  group.append(title);
+  const subtitle = createSvgElement("text", { class: "empty-person-subtitle", x: 360, y: 232 });
+  subtitle.textContent = "Start a new family branch";
+  group.append(subtitle);
+  svg.append(group);
 }
 
 export function renderTree(svg, tree) {
   svg.replaceChildren();
   if (tree.people.length === 0) {
+    svg.setAttribute("viewBox", "0 0 720 380");
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    renderEmptyTree(svg);
     return { width: 720, height: 380 };
   }
 

@@ -109,6 +109,65 @@ export function addPerson(tree, person) {
   };
 }
 
+export function updatePerson(tree, personId, changes) {
+  const cleanName = changes.name.trim();
+  if (!cleanName) {
+    throw new Error("Please enter a name.");
+  }
+  if (!tree.people.some((person) => person.id === personId)) {
+    throw new Error("This person is no longer in the tree.");
+  }
+
+  return {
+    ...tree,
+    people: tree.people.map((person) => person.id === personId
+      ? {
+          ...person,
+          name: cleanName,
+          born: changes.born.trim(),
+          place: changes.place.trim(),
+          story: changes.story.trim()
+        }
+      : person)
+  };
+}
+
+export function deletePerson(tree, personId) {
+  return {
+    ...tree,
+    people: tree.people.filter((person) => person.id !== personId),
+    relationships: tree.relationships.filter((relationship) =>
+      relationship.from !== personId && relationship.to !== personId
+    )
+  };
+}
+
+export function getPersonConnections(tree, personId) {
+  const peopleById = new Map(tree.people.map((person) => [person.id, person]));
+  const connections = [];
+  for (const relationship of tree.relationships) {
+    let relativeId;
+    let label;
+    if (relationship.type === "partner" &&
+        (relationship.from === personId || relationship.to === personId)) {
+      relativeId = relationship.from === personId ? relationship.to : relationship.from;
+      label = "Partner";
+    } else if (relationship.type === "parent" && relationship.from === personId) {
+      relativeId = relationship.to;
+      label = "Child";
+    } else if (relationship.type === "parent" && relationship.to === personId) {
+      relativeId = relationship.from;
+      label = "Parent";
+    } else {
+      continue;
+    }
+
+    const person = peopleById.get(relativeId);
+    if (person) connections.push({ person, label });
+  }
+  return connections;
+}
+
 function hasParentPath(tree, startId, targetId) {
   const pending = [startId];
   const visited = new Set();

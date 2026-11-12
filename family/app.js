@@ -1,10 +1,17 @@
-import { addPerson, addRelationship, loadTree, saveTree } from "./tree-model.js";
+import {
+  addPerson,
+  addRelationship,
+  deletePerson,
+  getPersonConnections,
+  loadTree,
+  saveTree,
+  updatePerson
+} from "./tree-model.js";
 import { renderTree } from "./tree-view.js";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
 const status = document.querySelector("#tree-status");
-const emptyState = document.querySelector("#empty-state");
 const personDialog = document.querySelector("#person-dialog");
 const addPersonDialog = document.querySelector("#add-person-dialog");
 const connectionDialog = document.querySelector("#connection-dialog");
@@ -18,6 +25,8 @@ let viewBox = { x: 0, y: 0, width: 720, height: 380 };
 let selectedPersonId = null;
 let hasNavigated = false;
 let pointerStart = null;
+let editingPersonId = null;
+let connectNewPersonToId = null;
 
 function showStatus(message) {
   status.textContent = message;
@@ -60,7 +69,6 @@ function fitTree() {
 }
 
 function render() {
-  emptyState.hidden = tree.people.length > 0;
   layoutSize = renderTree(svg, tree);
   fitTree();
 }
@@ -101,29 +109,31 @@ function openPerson(personId) {
   document.querySelector("#person-born").textContent = person.born;
   document.querySelector("#person-place").textContent = person.place;
   document.querySelector("#person-story").textContent = person.story;
-
-  const familyNames = new Set();
-  for (const relationship of tree.relationships) {
-    if (relationship.type === "partner" &&
-        (relationship.from === personId || relationship.to === personId)) {
-      const relativeId = relationship.from === personId ? relationship.to : relationship.from;
-      const relative = tree.people.find((item) => item.id === relativeId);
-      if (relative) familyNames.add(`${relative.name} · partner`);
-    } else if (relationship.type === "parent" &&
-        (relationship.from === personId || relationship.to === personId)) {
-      const relativeId = relationship.from === personId ? relationship.to : relationship.from;
-      const relative = tree.people.find((item) => item.id === relativeId);
-      if (relative) {
-        familyNames.add(`${relative.name} · ${relationship.from === personId ? "child" : "parent"}`);
-      }
-    }
+  const connections = document.querySelector("#person-connections");
+  connections.replaceChildren();
+  for (const connection of getPersonConnections(tree, personId)) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.className = "connection-link";
+    button.type = "button";
+    button.dataset.openPerson = connection.person.id;
+    button.append(document.createTextNode(connection.person.name));
+    const relation = document.createElement("span");
+    relation.textContent = connection.label;
+    button.append(relation);
+    item.append(button);
+    connections.append(item);
   }
-  document.querySelector("#person-family").textContent =
-    Array.from(familyNames).join(", ");
+  if (connections.childElementCount === 0) {
+    const item = document.createElement("li");
+    item.className = "no-connections";
+    item.textContent = "No connections yet";
+    connections.append(item);
+  }
   personDialog.showModal();
 }
 
-function openConnectionDialog(personId) {
+function openConnectionDialog(personId, relativeId) {
   if (tree.people.length < 2) {
     showStatus("Add another person before creating a connection.");
     return;
@@ -131,18 +141,46 @@ function openConnectionDialog(personId) {
 
   populatePersonOptions(connectionForm.elements.person, personId);
   populatePersonOptions(connectionForm.elements.relative);
-  if (tree.people.length > 1) {
-    connectionForm.elements.relative.value =
-      tree.people.find((person) => person.id !== personId)?.id ?? "";
-  }
+  connectionForm.elements.relative.value = relativeId &&
+    relativeId !== personId &&
+    tree.people.some((person) => person.id === relativeId)
+    ? relativeId
+    : tree.people.find((person) => person.id !== personId)?.id ?? "";
   document.querySelector("#connection-error").textContent = "";
   connectionDialog.showModal();
 }
 
-document.querySelector("#add-person").addEventListener("click", () => {
+function openAddPerson(connectToId = null) {
+  editingPersonId = null;
+  connectNewPersonToId = connectToId;
   personForm.reset();
+  document.querySelector("#add-person-title").textContent = "Add a person";
+  document.querySelector("#person-submit").textContent = "Add to the tree";
   document.querySelector("#person-error").textContent = "";
   addPersonDialog.showModal();
+}
+
+function openEditPerson(personId) {
+  const person = tree.people.find((item) => item.id === personId);
+  if (!person) return;
+
+  editingPersonId = personId;
+  connectNewPersonToId = null;
+  personForm.elements.name.value = person.name;
+  personForm.elements.born.value = person.born;
+  personForm.elements.place.value = person.place;
+  personForm.elements.story.value = person.story;
+  document.querySelector("#add-person-title").textContent = "Edit details";
+  document.querySelector("#person-submit").textContent = "Save changes";
+  document.querySelector("#person-error").textContent = "";
+  personDialog.close();
+  addPersonDialog.showModal();
+}
+
+document.querySelector("#add-person").addEventListener("click", () => openAddPerson());
+
+document.querySelector("#person-edit").addEventListener("click", () => {
+  openEditPerson(selectedPersonId);
 });
 
 document.querySelector("#person-add-connection").addEventListener("click", () => {
@@ -153,15 +191,29 @@ document.querySelector("#person-add-connection").addEventListener("click", () =>
 personForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const values = new FormData(personForm);
+  const details = {
+    name: values.get("name"),
+    born: values.get("born"),
+    place: values.get("place"),
+    story: values.get("story")
+  };
   try {
-    const nextTree = addPerson(tree, {
-      name: values.get("name"),
-      born: values.get("born"),
-      place: values.get("place"),
-      story: values.get("story")
-    });
+    const nextTree = editingPersonId
+      ? updatePerson(tree, editingPersonId, details)
+      : addPerson(tree, details);
+    const addedPersonId = editingPersonId ? null : nextTree.people.at(-1).id;
+    const shouldConnect = connectNewPersonToId;
     saveChanges(nextTree);
     addPersonDialog.close();
+    editingPersonId = null;
+    connectNewPersonToId = null;
+    if (addedPersonId && shouldConnect) {
+      openConnectionDialog(addedPersonId, shouldConnect);
+    } else if (addedPersonId) {
+      showStatus("Person added. Select them to add details or connections.");
+    } else {
+      openPerson(selectedPersonId);
+    }
   } catch (error) {
     document.querySelector("#person-error").textContent = error.message;
   }
@@ -184,21 +236,50 @@ document.querySelectorAll("[data-close]").forEach((button) => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
 
+document.querySelector("#person-connections").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-open-person]");
+  if (!button) return;
+  openPerson(button.dataset.openPerson);
+});
+
 document.querySelector("#zoom-in").addEventListener("click", () => zoom(0.8));
 document.querySelector("#zoom-out").addEventListener("click", () => zoom(1.25));
 document.querySelector("#zoom-level").addEventListener("click", fitTree);
 
 svg.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-action]");
+  if (action) {
+    if (action.dataset.action === "create") {
+      openAddPerson();
+      return;
+    }
+
+    const personNode = action.closest(".person-node");
+    if (!personNode) return;
+    if (action.dataset.action === "add") {
+      openAddPerson(personNode.dataset.personId);
+    } else if (action.dataset.action === "delete") {
+      const person = tree.people.find((item) => item.id === personNode.dataset.personId);
+      if (person && window.confirm(`Delete ${person.name} and their connections?`)) {
+        saveChanges(deletePerson(tree, person.id));
+        showStatus(tree.people.length === 0
+          ? "Your tree is empty. Select the dashed card to add someone."
+          : `${person.name} and their connections were deleted.`);
+      }
+    }
+    return;
+  }
+
   const node = event.target.closest(".person-node");
   if (node) openPerson(node.dataset.personId);
 });
 
 svg.addEventListener("keydown", (event) => {
-  if ((event.key === "Enter" || event.key === " ") &&
-      event.target.classList.contains("person-node")) {
-    event.preventDefault();
-    openPerson(event.target.dataset.personId);
-  }
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const target = event.target.closest("[data-action], .person-node");
+  if (!target) return;
+  event.preventDefault();
+  target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 });
 
 viewport.addEventListener("pointerdown", (event) => {
