@@ -121,7 +121,7 @@ function addConnectors(svg, tree, layout) {
 
     connectorGroup.append(createSvgElement("path", {
       d: path,
-      class: `tree-connector ${relationship.type}`
+      class: `tree-connector ${relationship.type}${relationship.uncertain ? " uncertain" : ""}`
     }));
   }
 

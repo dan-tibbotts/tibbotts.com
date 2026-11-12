@@ -477,6 +477,6 @@ if ("ResizeObserver" in window) {
 if (loadResult.warning) {
   showStatus(loadResult.warning);
 } else if (loadResult.tree.people.length > 0) {
-  showStatus("Explore the sample tree, or add your own family.");
+  showStatus("Explore the family tree, or add your own family.");
 }
 render();
