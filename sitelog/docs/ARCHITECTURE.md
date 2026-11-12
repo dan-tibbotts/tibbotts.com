@@ -43,3 +43,11 @@ A production migration must redesign how authenticated caches are loaded and how
 Uses standard HTML/CSS/modules, IndexedDB, Web Crypto, canvas and service workers. `createImageBitmap` falls back to an image element. Network type and persistent storage APIs are optional. Native file inputs provide video capture on supporting mobile browsers and a library fallback. Unsupported video codecs may store successfully but fail playback in that browser. Video transcoding is intentionally absent.
 
 The current Mac can edit/run the Node server and pure tests. No Wrangler or native Cloudflare runtime is required. Actual iPhone/Android behaviour, quota exhaustion and location permissions need the manual checklist.
+
+## Operations Stage 1 extensions
+
+The existing UI, mock identity, IndexedDB, media and single sync engine are retained. `time-form.mjs` and `schedule-form.mjs` extract focused form behaviour from the existing UI coordinator. `work-schedules.mjs` validates/selects effective weekly patterns; `time-suggestions.mjs` subtracts all-job intervals and allocates only the remaining usual break. Earlier gaps, covered days, non-working days and legacy records have explicit states. `nearby-jobs.mjs` evaluates optional coordinates, accuracy, assignment and radius without storing GPS or changing the selected site.
+
+`permissions.mjs` provides explicit worker projections and entry/lock checks. `schedule-service.mjs` and `timesheet-service.mjs` use `store.readwrite()` to perform validation and mutations within one live IndexedDB transaction. No asynchronous network/crypto gaps or app-level Web Locks are required for atomic time acceptance. Existing notes/media/outbox code is reused.
+
+These remain local simulation boundaries. A real server/auth/database implementation is still necessary for production enforcement. The v2 service-worker cache includes the new public modules and retains `/sitelog/` scope; private records remain outside CacheStorage.

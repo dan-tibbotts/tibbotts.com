@@ -1,4 +1,4 @@
-import { hours, prettyDate } from "./domain.mjs";
+import { hours, prettyDate, isTimedEntry, entryMinutes } from "./domain.mjs";
 export const escape = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -72,11 +72,13 @@ export function siteSketch(color = "sage") {
   return `<svg class="site-sketch ${escape(color)}" viewBox="0 0 360 180" fill="none" aria-hidden="true"><path class="land" d="M-30 147 144 65l242 86-135 80z"/><g stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="m83 99 93-46 101 43-93 50z"/><path d="M83 99v36l101 45v-34m0 34 93-48V96M176 53v37m-93 45 93-45 101 42"/><path d="m66 98 40-63 74-35 32 39m-106-4 70 18 36-14 77 53M106 35v51m106-47v27"/><path d="m112 126 22 10v28m-22-38v28m91-17 25-13v25l-25 13zm35-18 24-12v25l-24 12z"/><path opacity=".3" d="m20 147 60 27m207-10 50-24M38 132l20 9M303 84l26 10"/></g></svg>`;
 }
 export function timeSubtitle(entry) {
+  if (!isTimedEntry(entry))
+    return "Hours-only record · actual times need review";
   return `${escape(entry.start)} – ${escape(entry.end)}${entry.overnight ? " (+1 day)" : ""}${entry.breakMinutes ? ` · ${entry.breakMinutes} min break` : ""}`;
 }
 export function timeTable(rows, { jobName, userName, admin = false } = {}) {
   return rows.length
-    ? `<div class="table-scroll"><table><thead><tr><th>Date / job</th>${admin ? "<th>Worker</th>" : ""}<th>Time</th><th>Hours</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows.map((t) => `<tr><td><strong>${prettyDate(t.date)}</strong><span class="cell-sub">${escape(jobName(t.jobId))}</span></td>${admin ? `<td>${escape(userName(t.workerId))}</td>` : ""}<td>${timeSubtitle(t)}</td><td><strong>${hours(t.totalMinutes)}</strong></td><td>${statusBadge(t.localState)}</td><td><div class="row-actions"><button class="icon-button" data-action="edit-time:${t.id}" aria-label="Edit time for ${prettyDate(t.date)}">${icon("edit")}</button><button class="icon-button" data-action="history:${t.id}" aria-label="View revision history">${icon("history")}</button></div></td></tr>`).join("")}</tbody></table></div>`
+    ? `<div class="table-scroll"><table><thead><tr><th>Date / job</th>${admin ? "<th>Worker</th>" : ""}<th>Time</th><th>Hours</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows.map((t) => `<tr><td><strong>${prettyDate(t.date)}</strong><span class="cell-sub">${escape(jobName(t.jobId))}</span></td>${admin ? `<td>${escape(userName(t.workerId))}</td>` : ""}<td>${timeSubtitle(t)}</td><td><strong>${hours(entryMinutes(t))}</strong></td><td>${statusBadge(t.localState)}</td><td><div class="row-actions"><button class="icon-button" data-action="edit-time:${t.id}" aria-label="Edit time for ${prettyDate(t.date)}">${icon("edit")}</button><button class="icon-button" data-action="history:${t.id}" aria-label="View revision history">${icon("history")}</button></div></td></tr>`).join("")}</tbody></table></div>`
     : empty(
         "No time recorded",
         "Time entries for this selection will appear here.",

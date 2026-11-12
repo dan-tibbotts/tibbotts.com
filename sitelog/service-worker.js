@@ -1,5 +1,5 @@
 /* Public shell only. Never intercept another project or cache personal responses. */
-const CACHE = "sitelog-shell-v1";
+const CACHE = "sitelog-shell-v2";
 const ROOT = "/sitelog/";
 const FILES = [
   ROOT,
@@ -20,6 +20,15 @@ const FILES = [
     "records",
     "sync",
     "media",
+    "migrations",
+    "work-schedules",
+    "schedule-service",
+    "schedule-form",
+    "time-form",
+    "time-suggestions",
+    "timesheet-service",
+    "permissions",
+    "nearby-jobs",
   ].map((name) => ROOT + "src/" + name + ".mjs"),
 ];
 self.addEventListener("install", (event) => {

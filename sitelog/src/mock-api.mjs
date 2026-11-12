@@ -1,8 +1,11 @@
+import { acceptTimeOperation } from "./timesheet-service.mjs";
+import { projectWorkspace, jobDTO } from "./permissions.mjs";
+export { saveWorkSchedule } from "./schedule-service.mjs";
 // Browser-local office-copy adapter. Replace this boundary with authenticated REST.
 // All records and permissions here remain inspectable/editable through developer tools.
-import { all, get, put, atomic, meta } from "./store.mjs";
-import { requireUser } from "./mock-auth.mjs";
-import { canAccessJob, validateTime, assertRevision, uuid } from "./domain.mjs";
+import { all, get, put, atomic, meta, snapshot } from "./store.mjs";
+import { currentUser, requireUser } from "./mock-auth.mjs";
+import { canAccessJob, uuid } from "./domain.mjs";
 async function admin() {
   const user = await requireUser();
   if (user.role !== "office_admin")
@@ -11,7 +14,8 @@ async function admin() {
 }
 export async function accessibleJobs() {
   const user = await requireUser();
-  return (await all("jobs")).filter((j) => canAccessJob(user, j));
+  const jobs = (await all("jobs")).filter((j) => canAccessJob(user, j));
+  return user.role === "office_admin" ? jobs : jobs.map(jobDTO);
 }
 export async function authoriseJob(id, user) {
   const job = await get("jobs", id);
@@ -101,7 +105,11 @@ export async function inviteUser({ email, displayName, role }) {
     });
   });
 }
+export async function workspaceSnapshot() {
+  return projectWorkspace(await snapshot(), await currentUser());
+}
 export async function applyOperation(operation) {
+  if (operation.kind === "time") return acceptTimeOperation(operation);
   const user = await requireUser();
   if (user.id !== operation.userId)
     throw new Error("Sign in to the account that saved this record.");
@@ -110,30 +118,7 @@ export async function applyOperation(operation) {
   const now = new Date().toISOString();
   let value = { ...operation.data, receivedAt: now, updatedAt: now };
   const names = ["operations", "meta"];
-  let revision;
-  if (operation.kind === "time") {
-    names.push("timesheets", "revisions");
-    if (user.role !== "office_admin" && value.workerId !== user.id)
-      throw new Error("You can only change your own time records.");
-    const prior = await get("timesheets", value.id);
-    if (prior && prior.workerId !== value.workerId)
-      throw new Error(
-        "The worker on an existing time entry cannot be changed.",
-      );
-    assertRevision(operation.expectedRevision ?? 0, prior?.revision ?? 0);
-    value = validateTime(value, await all("timesheets"));
-    value.revision = (prior?.revision || 0) + 1;
-    revision = {
-      id: uuid(),
-      entryId: value.id,
-      sequence: value.revision,
-      before: prior || null,
-      after: value,
-      editorId: user.id,
-      createdAt: now,
-      reason: operation.reason || "",
-    };
-  } else if (operation.kind === "note") {
+  if (operation.kind === "note") {
     names.push("notes");
     const prior = await get("notes", value.id);
     if (prior && prior.authorId !== user.id)
@@ -153,14 +138,7 @@ export async function applyOperation(operation) {
   } else throw new Error("Unknown record type.");
   // The simulated office record, revision, idempotency marker and queue state commit together.
   await atomic(names, (s) => {
-    s[
-      operation.kind === "time"
-        ? "timesheets"
-        : operation.kind === "note"
-          ? "notes"
-          : "media"
-    ].put(value);
-    if (revision) s.revisions.put(revision);
+    s[operation.kind === "note" ? "notes" : "media"].put(value);
     s.meta.put({ id: `applied:${operation.id}`, value: true });
     s.operations.put({
       ...operation,

@@ -1,27 +1,21 @@
-const STORES = [
-  "meta",
-  "users",
-  "jobs",
-  "notes",
-  "timesheets",
-  "revisions",
-  "media",
-  "operations",
-  "blobs",
-  "drafts",
-  "invites",
-];
+import {
+  DATABASE_NAME,
+  DATABASE_VERSION,
+  STORES,
+  upgradeDatabase,
+} from "./migrations.mjs";
 let connection;
 export async function openStore() {
   if (connection) return connection;
   connection = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("sitelog-mockup-v1", 1);
-    request.onupgradeneeded = () => {
-      for (const name of STORES)
-        request.result.createObjectStore(name, { keyPath: "id" });
-    };
+    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    request.onupgradeneeded = (event) =>
+      upgradeDatabase(request.result, request.transaction, event.oldVersion);
     request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close();
+      request.result.onversionchange = () => {
+        request.result.close();
+        connection = null;
+      };
       resolve(request.result);
     };
     request.onerror = () =>
@@ -89,5 +83,42 @@ export async function snapshot() {
 export async function reset() {
   await atomic(STORES, (s) => {
     for (const name of STORES) s[name].clear();
+  });
+}
+
+// All reads and writes share one IDB write transaction. No Web Locks or await gaps
+// are needed for serialisable acceptance across tabs and concurrent service calls.
+export async function readwrite(names, action) {
+  const db = await openStore();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(names, "readwrite");
+    const stores = Object.fromEntries(names.map((n) => [n, tx.objectStore(n)]));
+    const values = {};
+    let remaining = names.length,
+      result,
+      failure;
+    tx.oncomplete = () => resolve(result);
+    tx.onabort = () =>
+      reject(
+        failure ||
+          tx.error ||
+          new Error("The transaction could not be completed."),
+      );
+    tx.onerror = () => {
+      failure ||= tx.error;
+    };
+    for (const name of names) {
+      const request = stores[name].getAll();
+      request.onsuccess = () => {
+        values[name] = request.result;
+        if (--remaining === 0)
+          try {
+            result = action(values, stores);
+          } catch (error) {
+            failure = error;
+            tx.abort();
+          }
+      };
+    }
   });
 }

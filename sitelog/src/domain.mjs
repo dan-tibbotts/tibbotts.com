@@ -70,6 +70,9 @@ export function zonedInstant(date, time) {
     );
   return matches[0];
 }
+export const isTimedEntry = (entry) =>
+  /^\d{2}:\d{2}$/.test(entry?.start || "") &&
+  /^\d{2}:\d{2}$/.test(entry?.end || "");
 export function validateTime(entry, existing = []) {
   const startAt = zonedInstant(entry.date, entry.start);
   const endAt = zonedInstant(
@@ -77,6 +80,15 @@ export function validateTime(entry, existing = []) {
     entry.end,
   );
   const elapsed = (endAt - startAt) / 60000;
+  if (
+    entry.breakMinutes === "" ||
+    entry.breakMinutes === null ||
+    entry.breakMinutes === undefined ||
+    !["number", "string"].includes(typeof entry.breakMinutes)
+  )
+    throw new Error(
+      "Enter unpaid break minutes, including zero when no break was taken.",
+    );
   const breakMinutes = Number(entry.breakMinutes);
   if (elapsed <= 0 || elapsed > 24 * 60)
     throw new Error(
@@ -92,7 +104,12 @@ export function validateTime(entry, existing = []) {
     );
   if (
     existing.some((e) => {
-      if (e.id === entry.id || e.workerId !== entry.workerId) return false;
+      if (
+        e.id === entry.id ||
+        e.workerId !== entry.workerId ||
+        !isTimedEntry(e)
+      )
+        return false;
       const a = zonedInstant(e.date, e.start),
         b = zonedInstant(e.overnight ? shiftDate(e.date, 1) : e.date, e.end);
       return startAt < b && endAt > a;
@@ -109,6 +126,12 @@ export function validateTime(entry, existing = []) {
     endAt: new Date(endAt).toISOString(),
     timeZone: TIME_ZONE,
   };
+}
+export function entryMinutes(entry) {
+  if (Number.isInteger(entry?.totalMinutes)) return entry.totalMinutes;
+  return typeof entry?.hours === "number" && Number.isFinite(entry.hours)
+    ? Math.round(entry.hours * 60)
+    : 0;
 }
 export function hours(minutes = 0) {
   const h = Math.floor(minutes / 60),

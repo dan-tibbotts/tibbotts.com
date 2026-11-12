@@ -53,7 +53,7 @@ export class SyncEngine {
             o.state !== "conflict" &&
             (retry || !o.nextRetryAt || o.nextRetryAt <= Date.now()),
         )
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
       for (const op of ops) {
         if (this.paused || this.network() === "offline") break;
         if (
@@ -82,6 +82,7 @@ export class SyncEngine {
             state: error.code === "CONFLICT" ? "conflict" : "failed",
             attempts: op.attempts + 1,
             error: error.message,
+            conflictType: error.conflictType || null,
             nextRetryAt: Date.now() + Math.min(300000, 2000 * 2 ** op.attempts),
           });
         }

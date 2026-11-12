@@ -23,3 +23,17 @@ Business dates use Pacific/Auckland. Timezone resolution rejects nonexistent/amb
 Original image capture time is not inferred from filesystem metadata. `fileModifiedAt` and `importedAt` have distinct meanings. Photos are processed, so their checksum describes the saved compressed bytes, not the original source. Local “receivedAt” values are a device-clock simulation, not trusted server time.
 
 There is no Company/Tenant table. There is no production migration or production dataset.
+
+## Operations Stage 1 — schema version 2
+
+The database name above is preserved; `src/migrations.mjs` upgrades its **schema version to 2**. See `MIGRATIONS.md` for backfill, backup, verification and rollback limitations.
+
+| Added store         | Purpose                                                                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workSchedules`     | Worker ID, effective-from business date, NZ timezone, weekday start/end/break/overnight values, expected revision and editor. Legacy personal preferences are separate review-only records with no inferred effective date/days. |
+| `scheduleRevisions` | Immutable application snapshots of each central schedule change, prior/after values, editor and timestamp.                                                                                                                       |
+| `auditEvents`       | Time/schedule command actor, worker/record IDs, revision and timestamp. No movement/location logs.                                                                                                                               |
+
+Time revisions now also record whether a locked-record correction was explicitly administrative. Time operations can carry `adminCorrection` and `conflictType`. Existing rows are not rewritten on upgrade; new/changed timed entries are recomputed from actual endpoints. The working date and timezone stay distinct from UTC receipt/edit timestamps.
+
+Known hours-only values are displayed without assigning invented start/end times. New accepted timed corrections retain the previous hours-only snapshot in history. No acceptance details, real business hours, prices or coordinates are invented.

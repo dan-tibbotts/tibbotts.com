@@ -20,3 +20,14 @@ Run only with fictional information. Automated Chrome results do not replace the
 - [ ] Export CSV, including commas/quotes/formula-like content; download local media.
 - [ ] Reset with pending work, cancel once, then confirm. Only SiteLog demo data resets; family page local data is preserved.
 - [ ] Confirm `/`, `/family/` and their existing behaviour remain unchanged. The service worker does not intercept those routes, API/auth routes or unknown media paths.
+
+## Operations Stage 1 additions
+
+- [ ] Back up a copied v1 profile; compare all record counts/IDs and media bytes after v2 upgrade. Confirm old personal defaults remain review-only and no jobs/queues are reset.
+- [ ] Configure different weekday patterns and future effective dates in Office → Usual hours. Test Monday copy, revision conflicts and an unconfigured/non-working day.
+- [ ] Confirm the split-day example (07:30–11:00, then 11:00–16:00 with one 30-minute break) totals 480 minutes. Choose earlier/intermediate gaps explicitly.
+- [ ] Change date/worker after typing actual values, close/reopen offline and resolve the context prompt. Check that the selected job is retained and never silently replaced following lost assignment.
+- [ ] Correct an entry offline, interrupt/reopen, reconnect and verify one new revision. Race two overlapping saves and ensure one remains locally correctable.
+- [ ] Confirm workers cannot correct locked entries or retrieve office-only fields. Office locked corrections require a reason/explicit intent and retain lock/history.
+- [ ] Check gap selection, collapsed optional note, keyboard and safe-area behaviour on real iPhone/Android; save remains reachable and there is no horizontal scrolling.
+- [ ] Try denied/poor/adjacent/no-match GPS with saved and missing site coordinates. Confirm manual choice remains available and no location is stored.

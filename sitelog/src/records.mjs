@@ -1,4 +1,5 @@
-import { all, put, atomic } from "./store.mjs";
+import { assertTimeAccess } from "./permissions.mjs";
+import { all, put, atomic, get } from "./store.mjs";
 import { uuid, validateTime } from "./domain.mjs";
 export function mergeRecords(accepted, operations, kind) {
   const items = new Map(
@@ -6,7 +7,7 @@ export function mergeRecords(accepted, operations, kind) {
   );
   for (const op of operations
     .filter((o) => o.kind === kind && o.state !== "synced")
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt)))
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || "")))
     items.set(op.data.id, {
       ...op.data,
       localState: op.state,
@@ -23,7 +24,8 @@ export async function saveRecord(kind, data, user, options = {}) {
   );
   if (prior?.state === "syncing")
     throw new Error("This entry is syncing. Please try again in a moment.");
-  if (kind === "time")
+  if (kind === "time") {
+    assertTimeAccess(user, data, await get("timesheets", data.id), options);
     data = validateTime(
       data,
       mergeRecords(
@@ -32,6 +34,7 @@ export async function saveRecord(kind, data, user, options = {}) {
         "time",
       ),
     );
+  }
   if (kind === "note" && (!data.text.trim() || data.text.length > 4000))
     throw new Error("Add a note of up to 4,000 characters.");
   const operation = {
@@ -44,6 +47,7 @@ export async function saveRecord(kind, data, user, options = {}) {
     attempts: 0,
     expectedRevision: prior?.expectedRevision ?? options.expectedRevision ?? 0,
     reason: options.reason || "",
+    adminCorrection: !!options.adminCorrection,
     error: null,
   };
   await atomic(["operations", "drafts"], (s) => {

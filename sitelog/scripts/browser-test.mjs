@@ -63,14 +63,20 @@ try {
     ready("http://localhost:9223/json/list"),
     ready("http://localhost:4174/sitelog/"),
   ]);
-  const test = spawn(
-    process.execPath,
-    [fileURLToPath(new URL("../tests/browser-smoke.mjs", import.meta.url))],
-    { env, stdio: "inherit" },
-  );
-  process.exitCode = await new Promise((resolve) =>
-    test.on("exit", (code) => resolve(code ?? 1)),
-  );
+  for (const suite of ["browser-smoke.mjs", "stage1-browser.mjs"]) {
+    const test = spawn(
+      process.execPath,
+      [fileURLToPath(new URL("../tests/" + suite, import.meta.url))],
+      { env, stdio: "inherit" },
+    );
+    const result = await new Promise((resolve) =>
+      test.on("exit", (code) => resolve(code ?? 1)),
+    );
+    if (result !== 0) {
+      process.exitCode = result;
+      break;
+    }
+  }
 } finally {
   server.kill("SIGTERM");
   browser.kill("SIGTERM");

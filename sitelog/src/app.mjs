@@ -1,3 +1,7 @@
+import { openTimeForm } from "./time-form.mjs";
+import { openScheduleForm } from "./schedule-form.mjs";
+import { WEEKDAYS } from "./work-schedules.mjs";
+import { rankNearbyJobs } from "./nearby-jobs.mjs";
 import * as store from "./store.mjs";
 import * as auth from "./mock-auth.mjs";
 import * as api from "./mock-api.mjs";
@@ -22,6 +26,8 @@ import {
   canAccessJob,
   validateTime,
   csvCell,
+  entryMinutes,
+  isTimedEntry,
 } from "./domain.mjs";
 import {
   escape as e,
@@ -122,7 +128,7 @@ function refresh() {
   refreshing = refreshing
     .catch(() => {})
     .then(async () => {
-      state.data = await store.snapshot();
+      state.data = await api.workspaceSnapshot();
       const capacity = await navigator.storage?.estimate?.().catch(() => null);
       state.storageWarning =
         capacity?.quota && capacity.usage / capacity.quota > 0.8;
@@ -197,18 +203,20 @@ function todayPage() {
     media = allMedia().filter(
       (m) => m.uploaderId === state.user.id && m.date === state.date,
     );
-  const minutes = times.reduce((n, t) => n + t.totalMinutes, 0),
+  const minutes = times.reduce((n, t) => n + entryMinutes(t), 0),
     drafts = currentDrafts();
   const items = [
     ...times.map((t) => ({ ...t, kind: "time" })),
     ...notes.map((n) => ({ ...n, kind: "note" })),
     ...media.map((m) => ({ ...m, kind: "media" })),
-  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  ].sort((a, b) =>
+    (b.createdAt || b.date || "").localeCompare(a.createdAt || a.date || ""),
+  );
   const chart = Array.from({ length: 7 }, (_, i) => {
     const d = shiftDate(today, i - 6),
       min = allTimes()
         .filter((t) => t.workerId === state.user.id && t.date === d)
-        .reduce((n, t) => n + t.totalMinutes, 0);
+        .reduce((n, t) => n + entryMinutes(t), 0);
     return `<div class="week-bar ${d === today ? "today" : ""}" title="${prettyDate(d)}: ${hours(min)}"><i style="height:${Math.max(4, Math.min(62, (min / 480) * 62))}px"></i><span>${prettyDate(d, { weekday: "narrow", day: undefined, month: undefined })}</span></div>`;
   }).join("");
   return `${heading("A good day starts here", `Hello, ${e(state.user.displayName.split(" ")[0])}.`, "A few simple records. A clearer picture of the day.")}${currentJobBar()}${sync.network() === "offline" ? `<div class="notice warning">${icon("offline")}<p>You’re in offline mode. Keep recording — your work will stay on this device until you reconnect.</p></div>` : ""}${drafts.length ? `<div class="draft-banner"><span>${icon("note")} You have ${drafts.length} unfinished draft${drafts.length === 1 ? "" : "s"} saved on this device.</span>${button("Continue", "drafts", "text-button", "arrow")}</div>` : ""}<div class="section-title"><h2>Make a record</h2><span class="counter">For ${state.date === today ? "today" : prettyDate(state.date)}</span></div><div class="action-grid">${[
@@ -229,7 +237,7 @@ function recordRow(record) {
   const time = record.kind === "time",
     note = record.kind === "note";
   const label = time
-    ? `${hours(record.totalMinutes)} recorded`
+    ? `${hours(entryMinutes(record))} recorded`
     : note
       ? "Site note"
       : record.mimeType?.startsWith("video/")
@@ -245,7 +253,9 @@ function recordsPage() {
         (state.jobFilter === "all" || t.jobId === state.jobFilter),
     )
     .sort(
-      (a, b) => b.date.localeCompare(a.date) || b.start.localeCompare(a.start),
+      (a, b) =>
+        b.date.localeCompare(a.date) ||
+        (b.start || "").localeCompare(a.start || ""),
     );
   const notes = allNotes()
     .filter(
@@ -253,7 +263,9 @@ function recordsPage() {
         (state.user.role === "office_admin" || n.authorId === state.user.id) &&
         (state.jobFilter === "all" || n.jobId === state.jobFilter),
     )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) =>
+      (b.createdAt || b.date || "").localeCompare(a.createdAt || a.date || ""),
+    );
   return `${heading("A clear record", "Daily records", "Look back at the work, or make a correction.", button("Record Time", "time", "button primary", "plus"))}<div class="filter-bar">${jobSelectFilter()}<div class="tabs" role="group" aria-label="Record type">${[
     ["all", "All records"],
     ["time", "Time entries"],
@@ -268,7 +280,7 @@ function recordsPage() {
     )
     .join(
       "",
-    )}</div>${button("Export CSV", "export", "button", "download")}</div>${state.recordTab !== "notes" ? `<section class="panel"><div class="panel-header"><h2>Time entries <span class="record-count">${times.length}</span></h2><span class="small muted">${hours(times.reduce((n, t) => n + t.totalMinutes, 0))} total</span></div>${timeTable(times, { jobName, userName, admin: state.user.role === "office_admin" })}</section>` : ""}${state.recordTab !== "time" ? `<section class="panel" style="margin-top:22px"><div class="panel-header"><h2>Site notes</h2>${button("Add Note", "note", "text-button", "plus")}</div><div class="record-list">${notes.length ? notes.map((n) => `<div class="record-day-title">${prettyDate(n.date)} · ${e(userName(n.authorId))}</div>${recordRow({ ...n, kind: "note" })}`).join("") : empty("No notes yet", "A short note can make tomorrow easier.", "note")}</div></section>` : ""}`;
+    )}</div>${button("Export CSV", "export", "button", "download")}</div>${state.recordTab !== "notes" ? `<section class="panel"><div class="panel-header"><h2>Time entries <span class="record-count">${times.length}</span></h2><span class="small muted">${hours(times.reduce((n, t) => n + entryMinutes(t), 0))} total</span></div>${timeTable(times, { jobName, userName, admin: state.user.role === "office_admin" })}</section>` : ""}${state.recordTab !== "time" ? `<section class="panel" style="margin-top:22px"><div class="panel-header"><h2>Site notes</h2>${button("Add Note", "note", "text-button", "plus")}</div><div class="record-list">${notes.length ? notes.map((n) => `<div class="record-day-title">${prettyDate(n.date)} · ${e(userName(n.authorId))}</div>${recordRow({ ...n, kind: "note" })}`).join("") : empty("No notes yet", "A short note can make tomorrow easier.", "note")}</div></section>` : ""}`;
 }
 function jobSelectFilter() {
   return `<label><span class="sr-only">Filter by job</span><select data-filter="job"><option value="all">All jobs</option>${assignedJobs()
@@ -291,17 +303,20 @@ function jobsPage() {
 function mediaPage() {
   const media = allMedia()
     .filter((m) => state.jobFilter === "all" || m.jobId === state.jobFilter)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) =>
+      (b.createdAt || b.date || "").localeCompare(a.createdAt || a.date || ""),
+    );
   return `${heading("The details that matter", "Photos & videos", "A simple visual record of site progress.", button("Add media", "photo", "button primary", "plus"))}<div class="filter-bar">${jobSelectFilter()}${button("Upload queue", "queue", "button", "upload")}</div><div class="notice">${icon("info")}<p>Files are stored on this device. Demo sync makes them visible in the office view in this browser; it does not upload or back up files.</p></div><div class="media-grid">${media.map((m) => `<article class="media-tile"><button class="media-preview" data-action="view-media:${m.id}" aria-label="Open ${e(m.name)}"><img data-media-thumb="${m.id}" alt="${e(m.kind === "photo" ? m.name : "")}" hidden>${icon(m.kind === "video" ? "video" : "photo")}</button><div class="media-caption"><strong>${e(m.name)}</strong><p>${e(jobName(m.jobId))} · ${prettyDate(m.date)}</p>${statusBadge(m.localState)}</div></article>`).join("")}</div>${!media.length ? `<section class="panel">${empty("Your site progress, in pictures", "Add your first photos or a short video. They’ll be saved on this device.", "camera")}</section>` : ""}`;
 }
 function officePage() {
   const jobs = state.data.jobs,
     acceptedTimes = state.data.timesheets,
-    minutes = acceptedTimes.reduce((n, t) => n + t.totalMinutes, 0);
+    minutes = acceptedTimes.reduce((n, t) => n + entryMinutes(t), 0);
   return `${heading("The bigger picture", "Office admin", "Less chasing paperwork. More clarity across your jobs.", button("New job", "new-job", "button primary", "plus"))}<div class="stats-grid"><div class="stat-card"><small>${icon("job")}Active jobs</small><strong>${jobs.filter((j) => j.status === "active").length}</strong><p>Across the demo workspace</p></div><div class="stat-card"><small>${icon("clock")}Recorded labour</small><strong>${hours(minutes)}</strong><p>Accepted demo time entries</p></div><div class="stat-card"><small>${icon("people")}Site team</small><strong>${state.data.users.filter((u) => u.role === "worker" && u.active).length}</strong><p>Active workers</p></div></div><div class="filter-bar"><div class="tabs" role="group" aria-label="Office sections">${[
     ["overview", "Job overview"],
     ["timesheets", "Timesheets"],
     ["people", "People & invites"],
+    ["hours", "Usual hours"],
     ["timeline", "Site progress"],
   ]
     .map(([id, label]) =>
@@ -316,6 +331,32 @@ function officePage() {
     )}</div>${state.officeTab === "timesheets" ? button("Export CSV", "export", "button", "download") : ""}</div>${officeSection()}`;
 }
 function officeSection() {
+  if (state.officeTab === "hours")
+    return `<section class="panel"><div class="panel-header"><div><h2>Central usual hours</h2><p class="sub">Effective-dated suggestions. Actual time entries never change.</p></div></div><div class="schedule-people">${state.data.users
+      .filter((u) => u.active && u.role === "worker")
+      .map((u) => {
+        const schedules = state.data.workSchedules
+          .filter((s) => s.workerId === u.id && !s.needsReview)
+          .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+        const legacy = state.data.workSchedules.some(
+          (s) => s.workerId === u.id && s.needsReview,
+        );
+        return `<article class="schedule-person"><div class="section-title"><h3>${e(u.displayName)}</h3>${button("New effective schedule", `work-schedule:${u.id}`, "button", "plus")}</div>${!schedules.length ? `<p class="small muted">Usual hours are not configured. Workers enter actual times.${legacy ? " Previous personal suggestions are preserved for review." : ""}</p>` : ""}${schedules
+          .map(
+            (sc) =>
+              `<div class="schedule-version"><div><strong>From ${prettyDate(sc.effectiveFrom)}</strong><p class="form-help">${
+                Object.entries(sc.days)
+                  .map(
+                    ([n, d]) =>
+                      `${WEEKDAYS[Number(n) - 1].slice(0, 3)} ${d.start}–${d.end}${d.overnight ? " (+1 day)" : ""} · ${d.breakMinutes} min break`,
+                  )
+                  .join("; ") || "No usual working days"
+              }</p><small>Revision ${sc.revision} · Pacific/Auckland</small></div>${button("Edit", `edit-schedule:${sc.id}`, "text-button", "edit")}</div>`,
+          )
+          .join("")}</article>`;
+      })
+      .join("")}</div></section>`;
+
   if (state.officeTab === "people")
     return `<section class="panel"><div class="panel-header"><h2>Your people</h2>${button("Invite person", "invite", "button primary", "plus")}</div><div class="table-scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Assignments</th></tr></thead><tbody>${state.data.users
       .map(
@@ -354,14 +395,16 @@ function officeSection() {
         kind: "time",
         localState: "synced",
       })),
-    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    ].sort((a, b) =>
+      (b.createdAt || b.date || "").localeCompare(a.createdAt || a.date || ""),
+    );
     return `<section class="panel"><div class="panel-header"><h2>Site progress timeline</h2><span class="small muted">Simulated office copy</span></div><div class="record-list">${rows.length ? rows.map((r) => `<div class="record-day-title">${prettyDate(r.date)} · ${e(userName(r.authorId || r.uploaderId || r.workerId))}</div>${recordRow(r)}`).join("") : empty("No progress records yet", "Sync a worker’s notes or media to see them here.")}</div></section>`;
   }
   return `<section class="panel"><div class="panel-header"><div><h2>Actual vs estimated hours</h2><p class="sub">A clearer starting point for the next quote.</p></div>${button("Manage jobs", "nav:jobs", "text-button", "arrow")}</div><div class="table-scroll"><table><thead><tr><th>Job</th><th>Stage</th><th>Actual</th><th>Estimated</th><th>Hours used</th><th></th></tr></thead><tbody>${state.data.jobs
     .map((j) => {
       const actual = state.data.timesheets
           .filter((t) => t.jobId === j.id)
-          .reduce((n, t) => n + t.totalMinutes, 0),
+          .reduce((n, t) => n + entryMinutes(t), 0),
         percent = j.estimateMinutes ? (actual / j.estimateMinutes) * 100 : 0;
       return `<tr><td><strong>${e(j.name)}</strong><span class="cell-sub">${e(j.code)}</span></td><td><span class="pill ${j.status}">${e(j.stage)}</span></td><td><strong>${hours(actual)}</strong></td><td>${j.estimateMinutes ? hours(j.estimateMinutes) : "—"}</td><td><div class="progress ${percent > 100 ? "over" : ""}" title="${Math.round(percent)}% of estimated hours"><i style="width:${Math.min(100, percent)}%"></i></div><span class="cell-sub">${j.estimateMinutes ? `${Math.round(percent)}% of estimate` : "No estimate"}</span></td><td><button class="icon-button" data-action="edit-job:${j.id}" aria-label="Edit ${e(j.name)}">${icon("edit")}</button></td></tr>`;
     })
@@ -483,65 +526,56 @@ async function timeForm(id = null, draftId = null) {
   if (id && !entry) throw new Error("That time record is unavailable.");
   const did = draftId || `${state.user.id}:time:${id || "new"}`,
     draft = await store.get("drafts", did);
-  const defaults = metaValue(`defaults:${state.user.id}`, {
-    start: "07:30",
-    end: "16:00",
-    breakMinutes: 30,
-  });
-  const existing = allTimes().filter(
-    (t) => t.workerId === state.user.id && t.date === state.date,
-  );
-  const suggested = existing.length
-    ? existing.slice().sort((a, b) => b.end.localeCompare(a.end))[0].end
-    : defaults.start;
-  const v = {
-    jobId: currentJob()?.id,
-    date: state.date,
-    start: suggested,
-    end: defaults.end,
-    breakMinutes: defaults.breakMinutes,
-    ...entry,
-    ...draft?.values,
-  };
-  if (!v.jobId) {
+  const storedJob = entry?.jobId || draft?.values?.jobId;
+  if (storedJob && !assignedJobs().some((j) => j.id === storedJob)) {
+    modal(
+      "Job access changed",
+      "Your record and draft are still saved.",
+      '<div class="notice warning">Ask the office to restore job access or review this entry. It has not been moved to another job.</div>',
+    );
+    return;
+  }
+  if (!currentJob() && !entry) {
     toast("You need an assigned job before recording time.");
     return;
   }
-  modal(
-    entry ? "Correct time entry" : "Record Time",
-    entry
-      ? "Corrections keep the previous version."
-      : "Suggested times are a starting point. Check your actual hours.",
-    `<form><label class="field"><span>Job</span><select name="jobId">${jobOptions(v.jobId)}</select></label>${
-      state.user.role === "office_admin"
-        ? `<label class="field"><span>Worker</span><select name="workerId" ${entry ? "disabled" : ""}>${state.data.users
-            .filter((u) => u.role === "worker" || u.id === state.user.id)
-            .map(
-              (u) =>
-                `<option value="${u.id}" ${u.id === (v.workerId || state.user.id) ? "selected" : ""}>${e(u.displayName)}</option>`,
-            )
-            .join("")}</select></label>`
-        : ""
-    }${field("Work date", "date", v.date, "date", "required")}<div class="form-grid">${field("Start", "start", v.start, "time", "required")}${field("Finish", "end", v.end, "time", "required")}</div><label class="checkbox"><input name="overnight" type="checkbox" ${v.overnight ? "checked" : ""}> Finishes next day</label>${field("Unpaid break (minutes)", "breakMinutes", v.breakMinutes, "number", 'min="0" max="1439" step="1" required')}<div class="time-total"><span>Total worked · Pacific/Auckland</span><strong id="time-total">—</strong></div><label class="field" style="margin-top:18px"><span>${entry ? "Reason for correction (optional)" : "Note (optional)"}</span><input name="reason" value="${e(draft?.values?.reason || "")}" maxlength="500" placeholder="Anything useful to add?"></label>${formFooter(entry ? "Save correction" : "Save time", true)}</form>`,
-    async (f) => {
-      const user = state.user,
-        data = {
-          id: entry?.id || uuid(),
-          workerId: f.get("workerId") || entry?.workerId || user.id,
-          jobId: f.get("jobId"),
-          date: f.get("date"),
-          start: f.get("start"),
-          end: f.get("end"),
-          breakMinutes: Number(f.get("breakMinutes")),
-          overnight: f.has("overnight"),
-          createdAt: entry?.createdAt || new Date().toISOString(),
-          revision: entry?.revision || 0,
-          status: "open",
-          notes: entry?.notes || (!entry ? f.get("reason") : ""),
-        };
+  const user = state.user;
+  openTimeForm({
+    entry,
+    draft,
+    user,
+    jobs: assignedJobs(),
+    users: state.data.users,
+    schedules: state.data.workSchedules,
+    entries: allTimes(),
+    date: state.date,
+    chosenJobId: currentJob()?.id,
+    modal,
+    footer: formFooter,
+    updateTotal: updateTimeTotal,
+    onDraft: () =>
+      dialog
+        .querySelector("form")
+        ?.dispatchEvent(new Event("input", { bubbles: true })),
+    onSave: async (f) => {
+      const data = {
+        id: entry?.id || uuid(),
+        workerId: f.get("workerId") || entry?.workerId || user.id,
+        jobId: f.get("jobId"),
+        date: f.get("date"),
+        start: f.get("start"),
+        end: f.get("end"),
+        breakMinutes: Number(f.get("breakMinutes")),
+        overnight: f.has("overnight"),
+        createdAt: entry?.createdAt || new Date().toISOString(),
+        revision: entry?.revision || 0,
+        status: entry?.status || "open",
+        notes: entry?.notes || (!entry ? f.get("reason") : ""),
+      };
       await saveRecord("time", data, user, {
         expectedRevision: entry?.revision || 0,
         reason: f.get("reason"),
+        adminCorrection: f.has("adminCorrection"),
         draftId: did,
       });
       closeModal();
@@ -550,9 +584,39 @@ async function timeForm(id = null, draftId = null) {
       notify();
       void sync.run();
     },
+  });
+  if (dialog.querySelector("#time-form")) draftAutoSave("time", did);
+}
+async function workScheduleForm(workerId, scheduleId = null) {
+  if (state.user.role !== "office_admin")
+    throw new Error("Office access is required.");
+  const worker = state.data.users.find((u) => u.id === workerId);
+  const schedule = scheduleId
+    ? state.data.workSchedules.find(
+        (s) => s.id === scheduleId && !s.needsReview,
+      )
+    : null;
+  const legacy = state.data.workSchedules.find(
+    (s) => s.workerId === workerId && s.needsReview,
   );
-  draftAutoSave("time", did);
-  updateTimeTotal();
+  openScheduleForm({
+    worker,
+    schedule,
+    legacy,
+    modal,
+    footer: formFooter,
+    onSave: async (input, options) => {
+      if (sync.network() === "offline")
+        throw new Error(
+          "Reconnect before changing central usual hours. Worker drafts remain available offline.",
+        );
+      await api.saveWorkSchedule(input, options);
+      closeModal();
+      await refresh();
+      notify();
+      toast("Central usual hours saved");
+    },
+  });
 }
 async function noteForm(draftId = null, entryId = null) {
   const entry = entryId
@@ -718,19 +782,12 @@ async function nearby() {
       const target = dialog.querySelector("#nearby-results");
       if (!target) return;
       const accuracy = position.coords.accuracy;
-      const matches = assignedJobs()
-        .filter(
-          (j) => j.status === "active" && j.lat !== null && j.lng !== null,
-        )
-        .map((j) => ({
-          job: j,
-          distance: distanceMetres(
-            { lat: position.coords.latitude, lng: position.coords.longitude },
-            j,
-          ),
-        }))
-        .sort((a, b) => a.distance - b.distance);
-      target.innerHTML = `<p class="form-help" style="margin-bottom:15px">Location accuracy: approximately ${Math.round(accuracy)} m. ${accuracy > 150 ? "Accuracy is low. Check the job carefully." : "Choose the correct site below."}</p>${matches.map(({ job: j, distance: d }) => `<button class="persona-button" style="width:100%;margin-bottom:9px" data-action="select-job:${j.id}"><span class="job-icon">${icon("pin")}</span><span><strong>${e(j.name)}</strong><small>${d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`} away · ${e(j.address)}</small></span></button>`).join("")}`;
+      const result = rankNearbyJobs(
+        assignedJobs(),
+        state.user,
+        position.coords,
+      );
+      target.innerHTML = `<div class="notice ${result.state === "match" ? "" : "warning"}"><p>${e(result.message)} Location accuracy: approximately ${Math.round(accuracy)} m.</p></div>${result.matches.map(({ job: j, distance: d }) => `<button class="persona-button" style="width:100%;margin-bottom:9px" data-action="select-job:${j.id}"><span class="job-icon">${icon("pin")}</span><span><strong>${e(j.name)}${result.suggestedJobId === j.id ? " · Suggested" : ""}</strong><small>${e(j.address)} · ${d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`} away</small><small>Confirm this job</small></span></button>`).join("")}`;
     },
     () => {
       const target = dialog.querySelector("#nearby-results");
@@ -749,11 +806,11 @@ async function jobDetail(id) {
   if (!job) throw new Error("This job is unavailable.");
   const time = allTimes()
     .filter((t) => t.jobId === id)
-    .reduce((n, t) => n + t.totalMinutes, 0);
+    .reduce((n, t) => n + entryMinutes(t), 0);
   modal(
     e(job.name),
     `${e(job.code)} · ${e(job.category)}`,
-    `<div class="site-detail-visual">${siteSketch(job.color)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${job.lat === null ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div><div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
+    `<div class="site-detail-visual">${siteSketch(job.color)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${!Number.isFinite(job.lat) || !Number.isFinite(job.lng) ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div><div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
   );
 }
 async function jobForm(id = null) {
@@ -831,7 +888,7 @@ async function history(id) {
   modal(
     "Time entry history",
     `${e(jobName(entry.jobId))} · ${prettyDate(entry.date)}`,
-    `${entry.localState !== "synced" ? `<div class="notice warning">${icon("info")}<p>Your latest correction is saved on this device. It joins this history after demo sync.</p></div>` : ""}${revisions.map((r) => `<article class="history-entry"><strong>Revision ${r.sequence} · ${e(userName(r.editorId))}</strong><p>${new Date(r.createdAt).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ time</p><div class="history-values">${r.before ? `<span>${timeSubtitle(r.before)} · ${hours(r.before.totalMinutes)}</span>${icon("arrow")}` : "<span>Initial entry</span>" + icon("arrow")}<strong>${timeSubtitle(r.after)} · ${hours(r.after.totalMinutes)}</strong></div>${r.reason ? `<p>${e(r.reason)}</p>` : ""}</article>`).join("") || empty("Not synced yet", "The initial history is created when this entry reaches the simulated office copy.", "history")}`,
+    `${entry.localState !== "synced" ? `<div class="notice warning">${icon("info")}<p>Your latest correction is saved on this device. It joins this history after demo sync.</p></div>` : ""}${revisions.map((r) => `<article class="history-entry"><strong>Revision ${r.sequence} · ${e(userName(r.editorId))}</strong><p>${new Date(r.createdAt).toLocaleString("en-NZ", { timeZone: "Pacific/Auckland" })} NZ time</p><div class="history-values">${r.before ? `<span>${timeSubtitle(r.before)} · ${hours(entryMinutes(r.before))}</span>${icon("arrow")}` : "<span>Initial entry</span>" + icon("arrow")}<strong>${timeSubtitle(r.after)} · ${hours(entryMinutes(r.after))}</strong></div>${r.reason ? `<p>${e(r.reason)}</p>` : ""}</article>`).join("") || empty("Not synced yet", "The initial history is created when this entry reaches the simulated office copy.", "history")}`,
   );
 }
 async function viewMedia(id) {
@@ -849,12 +906,7 @@ async function viewMedia(id) {
 }
 function settings() {
   const user = state.user,
-    policy = metaValue("uploadPolicy", "wifi"),
-    defaults = metaValue(`defaults:${user.id}`, {
-      start: "07:30",
-      end: "16:00",
-      breakMinutes: 30,
-    });
+    policy = metaValue("uploadPolicy", "wifi");
   modal(
     "Your workspace",
     "Settings for this device and the local mockup.",
@@ -878,15 +930,7 @@ function settings() {
       )
       .join(
         "",
-      )}</select></label><div style="display:flex;flex-wrap:wrap;gap:8px">${button("Try an edit conflict", "simulate-conflict", "button", "history")}${button("Expire demo session", "expire-session", "button", "clock")}${button("Renew demo session", "renew-session", "button", "check")}</div></div><div class="setting-section"><h3>Your time-entry suggestions</h3><p>Suggestions are never recorded automatically.</p><form id="defaults-form"><div class="form-grid">${field("Standard start", "start", defaults.start, "time", "required")}${field("Standard finish", "end", defaults.end, "time", "required")}</div>${field("Unpaid break (minutes)", "breakMinutes", defaults.breakMinutes, "number", 'required min="0" max="1439"')}<p class="form-error" role="alert"></p><button class="button" type="submit">Save suggestions</button></form></div><div class="setting-section"><h3>Device storage</h3><p id="storage-info">Checking available storage…</p>${button("Request persistent storage", "persist-storage", "button", "download")}<p style="margin-top:10px">Browser storage is best effort. Clearing site data removes demo records and files. This is not a backup.</p></div><div class="setting-section"><h3>Local concept workspace</h3><p>All people and jobs are fictional. Demo sign-in and permissions are for exploration, not production security. No email, external service or database connection is used.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${button("About & privacy", "about", "button", "info")}${button("Sign out", "logout", "button", "logout")}${button("Reset demo data", "reset", "button danger", "trash")}</div></div>`,
-    async (f) => {
-      await store.setMeta(`defaults:${user.id}`, {
-        start: f.get("start"),
-        end: f.get("end"),
-        breakMinutes: Number(f.get("breakMinutes")),
-      });
-      toast("Time suggestions saved");
-    },
+      )}</select></label><div style="display:flex;flex-wrap:wrap;gap:8px">${button("Try an edit conflict", "simulate-conflict", "button", "history")}${button("Expire demo session", "expire-session", "button", "clock")}${button("Renew demo session", "renew-session", "button", "check")}</div></div><div class="setting-section"><h3>Usual hours</h3><p>Office-managed weekly schedules apply by effective date. Actual times are always editable. Previous personal suggestions are retained for review.</p>${user.role === "office_admin" ? button("Manage usual hours", "manage-hours", "button", "calendar") : "<p>Ask the office to configure or update your usual hours.</p>"}</div><div class="setting-section"><h3>Device storage</h3><p id="storage-info">Checking available storage…</p>${button("Request persistent storage", "persist-storage", "button", "download")}<p style="margin-top:10px">Browser storage is best effort. Clearing site data removes demo records and files. This is not a backup.</p></div><div class="setting-section"><h3>Local concept workspace</h3><p>All people and jobs are fictional. Demo sign-in and permissions are for exploration, not production security. No email, external service or database connection is used.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${button("About & privacy", "about", "button", "info")}${button("Sign out", "logout", "button", "logout")}${button("Reset demo data", "reset", "button danger", "trash")}</div></div>`,
   );
   navigator.storage
     ?.estimate?.()
@@ -941,7 +985,7 @@ async function fillQueue() {
     )
     .join(
       "",
-    )}</select></div>${network === "unknown" && policy !== "any" ? `<div class="notice warning">${icon("wifi")}<p>This browser can’t confirm Wi-Fi or mobile data. Media will wait. You can allow a one-time upload below without changing your preference.</p></div>` : ""}<div style="display:flex;flex-wrap:wrap;gap:8px">${button(sync.paused ? "Resume" : "Pause", sync.paused ? "resume-sync" : "pause-sync", "button", sync.paused ? "play" : "pause")}${button("Retry records", "retry-sync", "button", "history")}${button("Upload now using this connection", "upload-now", "button primary", "upload")}</div><p class="form-help" style="margin-top:12px">Notes and time sync separately from media preferences. “Demo synced” means accepted in this device’s simulated office copy.</p><div class="queue-items">${ops.map((op) => `<div class="queue-item"><span class="record-symbol">${icon(op.kind === "time" ? "clock" : op.kind === "note" ? "note" : op.data.kind === "video" ? "video" : "photo")}</span><div class="queue-item-main"><strong>${op.kind === "time" ? `${hours(op.data.totalMinutes)} · ${op.data.start}–${op.data.end}` : op.kind === "note" ? e(op.data.text.slice(0, 65)) : e(op.data.name)}</strong><p>${e(jobName(op.data.jobId))}${op.kind === "media" ? ` · ${bytes(op.data.size)}` : ""}</p>${statusBadge(op.state)}${op.state === "queued" && op.kind === "media" ? `<p>${sync.paused ? "Paused" : network === "offline" ? "Waiting for a connection" : policy === "wifi" ? "Waiting for Wi-Fi" : policy === "mobile" ? "Waiting for mobile data" : "Ready to demo sync"}</p>` : ""}${op.state === "syncing" ? `<div class="progress"><i style="width:${op.progress || 20}%"></i></div>` : ""}${op.error ? `<p class="error">${e(op.error)}</p>` : ""}${op.state === "conflict" ? button("Compare changes", `conflict:${op.id}`, "text-button", "history") : ""}</div>${op.state !== "syncing" ? `<button class="icon-button" data-action="discard-op:${op.id}" aria-label="Remove pending ${op.kind} record">${icon("trash")}</button>` : ""}</div>`).join("") || empty("All caught up", "There are no pending records for this account.", "check")}</div>`;
+    )}</select></div>${network === "unknown" && policy !== "any" ? `<div class="notice warning">${icon("wifi")}<p>This browser can’t confirm Wi-Fi or mobile data. Media will wait. You can allow a one-time upload below without changing your preference.</p></div>` : ""}<div style="display:flex;flex-wrap:wrap;gap:8px">${button(sync.paused ? "Resume" : "Pause", sync.paused ? "resume-sync" : "pause-sync", "button", sync.paused ? "play" : "pause")}${button("Retry records", "retry-sync", "button", "history")}${button("Upload now using this connection", "upload-now", "button primary", "upload")}</div><p class="form-help" style="margin-top:12px">Notes and time sync separately from media preferences. “Demo synced” means accepted in this device’s simulated office copy.</p><div class="queue-items">${ops.map((op) => `<div class="queue-item"><span class="record-symbol">${icon(op.kind === "time" ? "clock" : op.kind === "note" ? "note" : op.data.kind === "video" ? "video" : "photo")}</span><div class="queue-item-main"><strong>${op.kind === "time" ? `${hours(op.data.totalMinutes)} · ${op.data.start}–${op.data.end}` : op.kind === "note" ? e(op.data.text.slice(0, 65)) : e(op.data.name)}</strong><p>${e(jobName(op.data.jobId))}${op.kind === "media" ? ` · ${bytes(op.data.size)}` : ""}</p>${statusBadge(op.state)}${op.state === "queued" && op.kind === "media" ? `<p>${sync.paused ? "Paused" : network === "offline" ? "Waiting for a connection" : policy === "wifi" ? "Waiting for Wi-Fi" : policy === "mobile" ? "Waiting for mobile data" : "Ready to demo sync"}</p>` : ""}${op.state === "syncing" ? `<div class="progress"><i style="width:${op.progress || 20}%"></i></div>` : ""}${op.error ? `<p class="error">${e(op.error)}</p>` : ""}${op.state === "conflict" ? button(op.conflictType === "overlap" ? "Correct actual times" : "Compare changes", `conflict:${op.id}`, "text-button", "history") : ""}</div>${op.state !== "syncing" ? `<button class="icon-button" data-action="discard-op:${op.id}" aria-label="Remove pending ${op.kind} record">${icon("trash")}</button>` : ""}</div>`).join("") || empty("All caught up", "There are no pending records for this account.", "check")}</div>`;
 }
 async function drafts() {
   await draftWrites;
@@ -1011,6 +1055,14 @@ async function simulateConflict() {
 async function conflict(id) {
   const op = ownOps().find((o) => o.id === id);
   if (!op) throw new Error("This pending correction is unavailable.");
+  if (op.conflictType === "overlap") {
+    modal(
+      "Time needs a correction",
+      "Your local record is still saved.",
+      `<div class="notice warning"><p>${e(op.error)} Another entry was accepted before this record. Adjust actual times or keep it saved for review.</p></div>${button("Correct actual times", `edit-time:${op.data.id}`, "button primary", "edit")}`,
+    );
+    return;
+  }
   const latest = state.data.timesheets.find((t) => t.id === op.data.id);
   if (!latest) throw new Error("The office record is unavailable.");
   modal(
@@ -1064,7 +1116,7 @@ function exportCSV() {
       t.end,
       t.overnight ? "Yes" : "No",
       t.breakMinutes,
-      t.totalMinutes,
+      entryMinutes(t),
       t.revision,
       t.localState,
     ]),
@@ -1216,6 +1268,21 @@ async function action(value) {
     case "queue":
       await queue();
       break;
+    case "manage-hours":
+      closeModal();
+      state.page = "office";
+      state.officeTab = "hours";
+      await refresh();
+      break;
+    case "work-schedule":
+      await workScheduleForm(id);
+      break;
+    case "edit-schedule": {
+      const schedule = state.data.workSchedules.find((s) => s.id === id);
+      if (!schedule) throw new Error("Schedule unavailable.");
+      await workScheduleForm(schedule.workerId, id);
+      break;
+    }
     case "settings":
       settings();
       break;
@@ -1477,6 +1544,13 @@ dialog.addEventListener("change", async (event) => {
   }
 });
 async function start() {
+  const sizeDialog = () =>
+    document.documentElement.style.setProperty(
+      "--sitelog-viewport-height",
+      `${window.visualViewport?.height || window.innerHeight}px`,
+    );
+  sizeDialog();
+  window.visualViewport?.addEventListener("resize", sizeDialog);
   try {
     await store.openStore();
     await seed();

@@ -53,3 +53,13 @@ npm --prefix sitelog run test:browser
 The optional browser suite launches an installed Chrome with a disposable profile, a local server on port 4174 and Chrome debugging on port 9223. It needs no npm dependencies. Set `CHROME_PATH` if Chrome is installed somewhere unusual. Close other processes using those test ports first. The suite creates synthetic files, never sends email, and cleans up its own browser/server/profile. Its mobile screenshot is written to the operating system's temporary directory as `sitelog-mobile.png`.
 
 See [architecture](docs/ARCHITECTURE.md), [implementation status](docs/IMPLEMENTATION_STATUS.md), [manual tests](docs/MANUAL_TESTS.md) and [future deployment](docs/DEPLOYMENT.md).
+
+## Operations expansion — Stage 1
+
+Discovery and the staged plan are in [SITELOG_GAP_ANALYSIS.md](docs/SITELOG_GAP_ANALYSIS.md). The operations specification is archived in [SiteLog_Operations_Codex_Specification.md](docs/SiteLog_Operations_Codex_Specification.md). This iteration extends the existing mockup; commercial Stages 2–8 are still on the implementation checklist.
+
+Switch to **Morgan → Office admin → Usual hours** to configure a worker's effective weekly pattern. Enter Monday, select it as a working day and use **Copy Monday to weekdays**, or specify different days individually. There is no invented company schedule: unconfigured/non-working days ask for actual times. Previous explicit personal suggestions are retained for office review.
+
+Record Time now finds remaining gaps across jobs, avoids repeating the day's unpaid break and preserves manual edits/drafts when the date or worker changes. Earlier gaps are explicit choices; a fully recorded usual shift requires actual extra time. Hours-only legacy records stay readable and require review before automatic gap calculation. Locked entries need an explicit office correction with a reason.
+
+The browser database upgrades additively to schema v2 without renaming it, clearing data or reseeding existing installations. **Read [migration/backup/recovery notes](docs/MIGRATIONS.md) before trying the upgrade with valued local data.** The application is still a local mockup, not a production authentication or cloud service.

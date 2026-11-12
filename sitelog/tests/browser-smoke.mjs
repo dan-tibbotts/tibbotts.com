@@ -72,7 +72,7 @@ check(
 );
 // Fresh fixture, using only the local prototype database.
 await evaluate(
-  `(async()=>{const s=await import('/sitelog/src/store.mjs');await s.reset();await(await import('/sitelog/src/seed.mjs')).seed();})()`,
+  `(async()=>{const s=await import('/sitelog/src/store.mjs');await s.reset();await(await import('/sitelog/src/seed.mjs')).seed();const a=await import('/sitelog/src/mock-auth.mjs'),api=await import('/sitelog/src/mock-api.mjs');await a.switchPersona('morgan');await api.saveWorkSchedule({id:'smoke-usual',workerId:'alex',effectiveFrom:'2020-01-01',timeZone:'Pacific/Auckland',days:Object.fromEntries([1,2,3,4,5,6,7].map(n=>[n,{start:'07:30',end:'16:00',breakMinutes:30}]))});await a.switchPersona('alex');})()`,
 );
 await send("Page.reload", { ignoreCache: true });
 await waitFor("document.querySelector('.current-job')");
