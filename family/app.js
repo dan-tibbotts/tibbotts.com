@@ -7,7 +7,7 @@ import {
   movePerson,
   saveTree,
   updatePerson
-} from "./tree-model.js?v=3";
+} from "./tree-model.js?v=4";
 import { movePersonNode, renderTree } from "./tree-view.js?v=3";
 
 const svg = document.querySelector("#family-tree");

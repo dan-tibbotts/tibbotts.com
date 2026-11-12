@@ -1,35 +1,5 @@
 const STORAGE_KEY = "tibbotts-family-tree-v1";
 
-const previousDemoPeople = [
-  ["margaret", "Margaret Tibbott", "1928", "Yorkshire", "Loved tending her garden and gathering everyone around the table for Sunday lunch."],
-  ["arthur", "Arthur Tibbott", "1925", "Leeds", "A quiet storyteller with a lifelong love of fixing old radios."],
-  ["elsie", "Elsie Harper", "1931", "Whitby", "Known for her seaside walks and excellent homemade jam."],
-  ["robert", "Robert Harper", "1929", "Whitby", "A patient fisherman who knew every cove along the coast."],
-  ["peter", "Peter Tibbott", "1952", "Yorkshire", "Grew up helping in the garden and still keeps a few family recipes."],
-  ["susan", "Susan Harper", "1955", "Whitby", "Keeps family photographs and stories safe for the next generation."],
-  ["james", "James Tibbott", "1979", "Yorkshire", "Always curious about the people and places that came before him."],
-  ["claire", "Claire Tibbott", "1982", "Yorkshire", "Enjoys bringing the family together and making new memories."],
-  ["emma", "Emma Morgan", "1980", "England", "Brings a love of books and family traditions to every gathering."],
-  ["daniel", "Daniel Tibbott", "2004", "England", "The keeper of this little, growing family tree."]
-];
-
-const previousDemoRelationships = [
-  "arthur>peter:parent",
-  "margaret>peter:parent",
-  "elsie>susan:parent",
-  "robert>susan:parent",
-  "peter>james:parent",
-  "susan>james:parent",
-  "peter>claire:parent",
-  "susan>claire:parent",
-  "james>daniel:parent",
-  "emma>daniel:parent",
-  "arthur>margaret:partner",
-  "elsie>robert:partner",
-  "peter>susan:partner",
-  "james>emma:partner"
-];
-
 const sampleTree = {
   people: [
     { id: "joseph-tibbotts-1696", name: "Joseph Tibbotts", born: "c. 1696", place: "West Pennard, Somerset", story: "Married Ann around 1717." },
@@ -211,107 +181,16 @@ const sampleTree = {
   ]
 };
 
-function isValidTree(value) {
-  if (!value ||
-      !Array.isArray(value.people) ||
-      !Array.isArray(value.relationships) ||
-      !value.people.every((person) =>
-      person &&
-      typeof person.id === "string" &&
-      typeof person.name === "string" &&
-      ["born", "place", "story"].every((key) => typeof person[key] === "string") &&
-      (person.photo === undefined ||
-        (typeof person.photo === "string" &&
-          person.photo.length <= 200_000 &&
-          (person.photo === "" || /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(person.photo))))
-      )) {
-    return false;
-  }
-
-  const peopleIds = new Set(value.people.map((person) => person.id));
-  if (peopleIds.size !== value.people.length) return false;
-
-  const validRelationships = value.relationships.every((relationship) =>
-      relationship &&
-      typeof relationship.from === "string" &&
-      typeof relationship.to === "string" &&
-      relationship.from !== relationship.to &&
-      peopleIds.has(relationship.from) &&
-      peopleIds.has(relationship.to) &&
-      (relationship.uncertain === undefined || typeof relationship.uncertain === "boolean") &&
-      ["parent", "partner"].includes(relationship.type) &&
-      (relationship.type !== "parent" ||
-        !hasParentPath(value, relationship.to, relationship.from))
-    );
-  if (!validRelationships) return false;
-
-  if (value.positions === undefined) return true;
-  return value.positions &&
-    typeof value.positions === "object" &&
-    !Array.isArray(value.positions) &&
-    ["standard", "circle"].every((view) =>
-      value.positions[view] === undefined ||
-      (value.positions[view] &&
-        typeof value.positions[view] === "object" &&
-        !Array.isArray(value.positions[view]) &&
-        Object.entries(value.positions[view]).every(([personId, position]) =>
-          position &&
-          peopleIds.has(personId) &&
-          Number.isFinite(position.x) &&
-          Number.isFinite(position.y)
-        ))
-    );
-}
-
-function isPreviousDemoTree(tree) {
-  if (tree.positions || tree.people.length !== previousDemoPeople.length) return false;
-  const people = tree.people.map(({ id, name, born, place, story, photo }) =>
-    [id, name, born, place, story, photo ?? ""]
-  );
-  if (JSON.stringify(people) !== JSON.stringify(previousDemoPeople.map((person) => [...person, ""]))) {
-    return false;
-  }
-  const relationships = tree.relationships
-    .map(({ from, to, type }) => `${from}>${to}:${type}`)
-    .sort();
-  return JSON.stringify(relationships) === JSON.stringify([...previousDemoRelationships].sort());
-}
-
 export function loadTree() {
+  const tree = structuredClone(sampleTree);
   try {
-    const storedTree = localStorage.getItem(STORAGE_KEY);
-    if (storedTree === null) {
-      return { tree: structuredClone(sampleTree), warning: "" };
-    }
-
-    const parsedTree = JSON.parse(storedTree);
-    if (!isValidTree(parsedTree)) {
-      return {
-        tree: structuredClone(sampleTree),
-        warning: "Saved tree data was invalid, so the sample tree was restored."
-      };
-    }
-
-    if (isPreviousDemoTree(parsedTree)) {
-      const seededTree = structuredClone(sampleTree);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seededTree));
-      } catch (error) {
-        console.error("Could not save the updated family-tree seed:", error);
-        return {
-          tree: seededTree,
-          warning: "The source family tree loaded, but could not be saved in this browser."
-        };
-      }
-      return { tree: seededTree, warning: "" };
-    }
-
-    return { tree: parsedTree, warning: "" };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tree));
+    return { tree, warning: "" };
   } catch (error) {
-    console.error("Could not load the saved family tree:", error);
+    console.error("Could not reset the saved family tree to the source seed:", error);
     return {
-      tree: structuredClone(sampleTree),
-      warning: "Saved data could not be loaded. Changes may not be saved in this browser."
+      tree,
+      warning: "The source family tree is loaded, but could not be saved in this browser."
     };
   }
 }
