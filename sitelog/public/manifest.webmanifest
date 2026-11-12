@@ -1,0 +1,31 @@
+{
+  "id": "/sitelog/",
+  "name": "SiteLog — Site records",
+  "short_name": "SiteLog",
+  "description": "Simple site records, less paperwork. Local concept mockup.",
+  "start_url": "/sitelog/",
+  "scope": "/sitelog/",
+  "display": "standalone",
+  "background_color": "#f6f6f2",
+  "theme_color": "#243e39",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

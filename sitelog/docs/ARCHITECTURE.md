@@ -1,0 +1,45 @@
+# Architecture
+
+The November 2026 SiteLog specification remains the product brief. The user's subsequent instruction authorises a complete browser-local mockup inside this repository, without external services or databases. This replaces the separate-repository and incremental cloud-release plan for this iteration.
+
+## Boundaries
+
+```text
+app.mjs / ui.mjs       Screens, dialogs, accessible controls and user interactions
+          |
+domain.mjs            Pure date/time, access, network and CSV rules
+          |
+records.mjs           Local operations, record projection and atomic draft commits
+          |
+sync.mjs              Queue lifecycle, connectivity policy and retries
+          |
+mock-api.mjs          Simulated office validation, accepted records and revisions
+          |
+mock-auth.mjs         Demonstration identity, invitations and expiring local sessions
+          |
+store.mjs             IndexedDB transactions and storage operations
+```
+
+`media.mjs` performs real browser-side photo processing, checksums and video metadata inspection. `seed.mjs` inserts fictional data only on the first launch or explicit reset. `service-worker.js` only caches a fixed allowlist of public shell assets under `/sitelog/`.
+
+The UI reads accepted records overlaid with the current user's pending changes. Office views show the accepted browser-local office copy; they do not expose other accounts' pending drafts. Workers see assigned jobs and their own hours. Notes/media on assigned jobs are shared job records.
+
+## Storage and atomicity
+
+Drafts are written on input. Saving a note/time operation and removing its draft is one IndexedDB transaction. Media blobs/thumbnails and their queue operation are also committed together. Success feedback follows the transaction's completion.
+
+The simulated office commits an accepted entity, revision (for time), idempotency marker and synced operation in one transaction. Replay does not duplicate records. A Web Lock serialises sync across tabs where supported. An interrupted `syncing` operation is returned to `queued` on startup. Failed operations persist with bounded exponential retry delays; conflicts require human resolution.
+
+The local queue uses `queued → syncing → synced`, with `failed` and `conflict` branches. In-progress form drafts live in a separate user-scoped draft store and represent the conceptual `draft` state. Queue state `synced` is displayed as **Demo synced**.
+
+## Future service replacement
+
+Replace `mock-auth.mjs` with same-origin `/sitelog/auth/*` calls and secure server sessions. Replace `mock-api.mjs` with `/sitelog/api/*` transport while retaining domain/UI and queue concepts. Move validation, permissions, idempotency and immutable history to the server; client code cannot enforce these against an attacker.
+
+A production migration must redesign how authenticated caches are loaded and how media finalisation works. Do not export this prototype database into production as trusted records. Do not deploy the demo code path as a production authentication fallback.
+
+## Compatibility
+
+Uses standard HTML/CSS/modules, IndexedDB, Web Crypto, canvas and service workers. `createImageBitmap` falls back to an image element. Network type and persistent storage APIs are optional. Native file inputs provide video capture on supporting mobile browsers and a library fallback. Unsupported video codecs may store successfully but fail playback in that browser. Video transcoding is intentionally absent.
+
+The current Mac can edit/run the Node server and pure tests. No Wrangler or native Cloudflare runtime is required. Actual iPhone/Android behaviour, quota exhaustion and location permissions need the manual checklist.
