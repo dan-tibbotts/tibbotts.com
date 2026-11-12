@@ -372,6 +372,14 @@ h1 {
   fill: #69766b;
   font-size: 10px;
   text-anchor: end;
+  paint-order: stroke;
+  stroke: #fbfaf6;
+  stroke-linejoin: round;
+  stroke-width: 3px;
+}
+
+.timeline-month-year-label {
+  text-anchor: start;
 }
 
 .timeline-month-line {
@@ -843,15 +851,49 @@ h1 {
   }
 
   .tree-toolbar {
-    align-items: start;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 7px;
-    padding: 11px 12px;
+    padding: 8px;
+  }
+
+  #tree-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .tree-controls {
     width: 100%;
-    justify-content: end;
+    justify-content: space-between;
+    gap: 5px;
+  }
+
+  .view-switch-label {
+    font-size: 0.7rem;
+  }
+
+  .view-switch {
+    min-width: 0;
+    flex: 1;
+    padding: 0 22px 0 8px;
+    font-size: 0.7rem;
+  }
+
+  .icon-button,
+  .zoom-level {
+    width: 32px;
+    height: 32px;
+  }
+
+  .zoom-level {
+    width: auto;
+    min-width: 42px;
+    padding: 0 6px;
   }
 
   .person-search {
@@ -870,9 +912,22 @@ h1 {
     min-height: 0;
   }
 
+  .tree-viewport::after {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 5px 8px;
+    border: 1px solid rgba(220, 222, 214, 0.9);
+    border-radius: 12px;
+    background: rgba(255, 254, 250, 0.92);
+    color: #78827a;
+    content: "Drag to pan · pinch to zoom";
+    font-size: 0.65rem;
+    pointer-events: none;
+  }
+
   .tree-caption {
-    padding: 10px;
-    font-size: 0.69rem;
+    display: none;
   }
 
   .dialog {

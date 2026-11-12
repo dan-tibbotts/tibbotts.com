@@ -8,7 +8,7 @@ import {
   saveTree,
   updatePerson
 } from "./tree-model.js?v=5";
-import { getBirthMonth, inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=5";
+import { getBirthMonth, inferBirthYears, movePersonNode, renderTree } from "./tree-view.js?v=6";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -33,6 +33,8 @@ let viewBox = { x: 0, y: 0, width: 720, height: 380 };
 let selectedPersonId = null;
 let hasNavigated = false;
 let pointerStart = null;
+let pinchStart = null;
+const activePointers = new Map();
 let editingPersonId = null;
 let connectNewPersonToId = null;
 let viewMode = "standard";
@@ -64,9 +66,29 @@ function setViewBox(nextViewBox) {
   );
 }
 
-function fitTree() {
+function fitTree(showWholeTree = false) {
   const bounds = viewport.getBoundingClientRect();
   if (bounds.width === 0 || bounds.height === 0) return;
+
+  if (!showWholeTree && window.matchMedia("(max-width: 620px)").matches && tree.people.length) {
+    const newest = tree.people.reduce((latest, person) =>
+      layoutSize.birthYears.get(person.id).year >
+        layoutSize.birthYears.get(latest.id).year
+        ? person
+        : latest
+    );
+    const position = layoutSize.positions.get(newest.id);
+    const width = bounds.width;
+    const height = bounds.height;
+    setViewBox({
+      x: position.x + layoutSize.nodeWidth / 2 - width / 2,
+      y: position.y + layoutSize.nodeHeight / 2 - height / 2,
+      width,
+      height
+    });
+    hasNavigated = false;
+    return;
+  }
 
   const aspectRatio = bounds.width / bounds.height;
   const width = Math.max(layoutSize.width, layoutSize.height * aspectRatio);
@@ -96,7 +118,9 @@ function render() {
 }
 
 function zoom(factor) {
-  const nextWidth = Math.min(layoutSize.width * 2.5, Math.max(layoutSize.width * 0.3, viewBox.width * factor));
+  const bounds = viewport.getBoundingClientRect();
+  const minimumWidth = Math.min(layoutSize.width * 0.3, bounds.width * 0.3);
+  const nextWidth = Math.min(layoutSize.width * 2.5, Math.max(minimumWidth, viewBox.width * factor));
   const nextHeight = viewBox.height * (nextWidth / viewBox.width);
   const centerX = viewBox.x + viewBox.width / 2;
   const centerY = viewBox.y + viewBox.height / 2;
@@ -387,7 +411,7 @@ document.querySelector("#person-connections").addEventListener("click", (event) 
 
 document.querySelector("#zoom-in").addEventListener("click", () => zoom(0.8));
 document.querySelector("#zoom-out").addEventListener("click", () => zoom(1.25));
-document.querySelector("#zoom-level").addEventListener("click", fitTree);
+document.querySelector("#zoom-level").addEventListener("click", () => fitTree(true));
 document.querySelector("#view-mode").addEventListener("change", (event) => {
   viewMode = event.currentTarget.value;
   render();
@@ -436,6 +460,30 @@ svg.addEventListener("keydown", (event) => {
 });
 
 viewport.addEventListener("pointerdown", (event) => {
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (event.pointerType === "touch" && activePointers.size >= 2) {
+    const [first, second] = Array.from(activePointers.values()).slice(-2);
+    const midpoint = {
+      x: (first.x + second.x) / 2,
+      y: (first.y + second.y) / 2
+    };
+    const bounds = viewport.getBoundingClientRect();
+    pinchStart = {
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+      midpoint,
+      viewBox: { ...viewBox },
+      anchor: {
+        x: viewBox.x + (midpoint.x - bounds.left) * viewBox.width / bounds.width,
+        y: viewBox.y + (midpoint.y - bounds.top) * viewBox.height / bounds.height
+      }
+    };
+    pointerStart = null;
+    viewport.classList.remove("is-dragging", "is-dragging-person");
+    viewport.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    return;
+  }
+
   const personNode = event.target.closest(".person-node");
   if (personNode) {
     if (event.target.closest("[data-action]")) return;
@@ -470,6 +518,32 @@ viewport.addEventListener("pointerdown", (event) => {
 });
 
 viewport.addEventListener("pointermove", (event) => {
+  if (activePointers.has(event.pointerId)) {
+    activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  }
+  if (pinchStart && activePointers.size >= 2) {
+    const [first, second] = Array.from(activePointers.values()).slice(-2);
+    const midpoint = {
+      x: (first.x + second.x) / 2,
+      y: (first.y + second.y) / 2
+    };
+    const bounds = viewport.getBoundingClientRect();
+    const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+    const minimumWidth = Math.min(layoutSize.width * 0.3, bounds.width * 0.3);
+    const width = Math.min(
+      layoutSize.width * 2.5,
+      Math.max(minimumWidth, pinchStart.viewBox.width * pinchStart.distance / distance)
+    );
+    const height = pinchStart.viewBox.height * width / pinchStart.viewBox.width;
+    setViewBox({
+      x: pinchStart.anchor.x - (midpoint.x - bounds.left) * width / bounds.width,
+      y: pinchStart.anchor.y - (midpoint.y - bounds.top) * height / bounds.height,
+      width,
+      height
+    });
+    hasNavigated = true;
+    return;
+  }
   if (!pointerStart || pointerStart.pointerId !== event.pointerId) return;
   const bounds = viewport.getBoundingClientRect();
   if (pointerStart.type === "person") {
@@ -500,6 +574,24 @@ viewport.addEventListener("pointermove", (event) => {
 });
 
 function stopPanning(event) {
+  activePointers.delete(event.pointerId);
+  if (pinchStart) {
+    pinchStart = null;
+    if (activePointers.size === 1) {
+      const [pointerId, point] = activePointers.entries().next().value;
+      pointerStart = {
+        pointerId,
+        type: "pan",
+        captureTarget: viewport,
+        x: point.x,
+        y: point.y,
+        viewX: viewBox.x,
+        viewY: viewBox.y
+      };
+      if (!viewport.hasPointerCapture(pointerId)) viewport.setPointerCapture(pointerId);
+    }
+    return;
+  }
   if (pointerStart?.pointerId !== event.pointerId) return;
   const completedDrag = pointerStart;
   pointerStart = null;

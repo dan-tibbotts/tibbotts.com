@@ -10,7 +10,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
   "Unknown"
 ];
-const MONTH_GAP = 18;
+const MONTH_GAP = 32;
 const BOTTOM_TIMELINE_HEIGHT = 54;
 const VIEW_SIZES = {
   standard: { width: CARD_WIDTH, height: CARD_HEIGHT },
@@ -226,17 +226,24 @@ function addTimeline(svg, layout) {
       class: `timeline-year-line${major ? " major" : ""}`,
       x1: AXIS_WIDTH - 12,
       y1: y,
-      x2: layout.width - PADDING,
+      x2: layout.x + layout.width,
       y2: y
     }));
-    if (major) {
-      const label = createSvgElement("text", {
-        class: "timeline-year-label",
-        x: AXIS_WIDTH - 22,
+    const label = createSvgElement("text", {
+      class: "timeline-year-label",
+      x: AXIS_WIDTH - 22,
+      y: y + 4
+    });
+    label.textContent = String(year);
+    timeline.append(label);
+    for (const column of layout.monthColumns.values()) {
+      const monthLabel = createSvgElement("text", {
+        class: "timeline-year-label timeline-month-year-label",
+        x: column.left + 4,
         y: y + 4
       });
-      label.textContent = String(year);
-      timeline.append(label);
+      monthLabel.textContent = String(year);
+      timeline.append(monthLabel);
     }
   }
 
