@@ -6,8 +6,8 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#f6f5f0">
   <title>Family tree — tibbotts.com</title>
-  <link rel="stylesheet" href="./styles.css?v=2">
-  <script type="module" src="./app.js?v=2"></script>
+  <link rel="stylesheet" href="./styles.css?v=3">
+  <script type="module" src="./app.js?v=3"></script>
 </head>
 <body>
   <main class="app-shell">
@@ -29,7 +29,11 @@
       <div class="tree-toolbar">
         <p id="tree-status" role="status" aria-live="polite"></p>
         <div class="tree-controls" aria-label="Tree view controls">
-          <span class="view-hint">Drag to move · Scroll or use the buttons to zoom</span>
+          <label class="view-switch-label" for="view-mode">View</label>
+          <select class="view-switch" id="view-mode" aria-label="Choose tree view">
+            <option value="standard">Standard</option>
+            <option value="circle">Circle photos</option>
+          </select>
           <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
           <button class="zoom-level" id="zoom-level" type="button" aria-label="Fit the whole tree">Fit</button>
           <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">＋</button>
@@ -38,7 +42,7 @@
       <div class="tree-viewport" id="tree-viewport">
         <svg id="family-tree" role="group" aria-label="Interactive family tree"></svg>
       </div>
-      <p class="tree-caption">Select a person to see their story and connections.</p>
+      <p class="tree-caption">Select a person to see their story and connections. Drag a person to arrange your tree.</p>
     </section>
   </main>
 
@@ -93,6 +97,16 @@
         Their story
         <textarea name="story" rows="3" maxlength="500" placeholder="A favorite memory, a little history…"></textarea>
       </label>
+      <label>
+        Profile photo
+        <input id="person-photo" name="photo" type="file" accept="image/*">
+        <span class="form-note">Photo stays in this browser. In circle view, it appears in the family tree.</span>
+      </label>
+      <div class="photo-preview" id="photo-preview" hidden>
+        <img id="photo-preview-image" alt="Profile photo preview">
+        <span id="photo-preview-placeholder">No photo selected</span>
+        <button class="button button-secondary" id="remove-photo" type="button">Remove photo</button>
+      </div>
       <p class="form-error" id="person-error" role="alert"></p>
       <div class="dialog-actions">
         <button class="button button-secondary" type="button" data-close>Cancel</button>

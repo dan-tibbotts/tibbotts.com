@@ -39,7 +39,11 @@ function isValidTree(value) {
       person &&
       typeof person.id === "string" &&
       typeof person.name === "string" &&
-      ["born", "place", "story"].every((key) => typeof person[key] === "string")
+      ["born", "place", "story"].every((key) => typeof person[key] === "string") &&
+      (person.photo === undefined ||
+        (typeof person.photo === "string" &&
+          person.photo.length <= 200_000 &&
+          (person.photo === "" || /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(person.photo))))
       )) {
     return false;
   }
@@ -47,7 +51,7 @@ function isValidTree(value) {
   const peopleIds = new Set(value.people.map((person) => person.id));
   if (peopleIds.size !== value.people.length) return false;
 
-  return value.relationships.every((relationship) =>
+  const validRelationships = value.relationships.every((relationship) =>
       relationship &&
       typeof relationship.from === "string" &&
       typeof relationship.to === "string" &&
@@ -57,6 +61,24 @@ function isValidTree(value) {
       ["parent", "partner"].includes(relationship.type) &&
       (relationship.type !== "parent" ||
         !hasParentPath(value, relationship.to, relationship.from))
+    );
+  if (!validRelationships) return false;
+
+  if (value.positions === undefined) return true;
+  return value.positions &&
+    typeof value.positions === "object" &&
+    !Array.isArray(value.positions) &&
+    ["standard", "circle"].every((view) =>
+      value.positions[view] === undefined ||
+      (value.positions[view] &&
+        typeof value.positions[view] === "object" &&
+        !Array.isArray(value.positions[view]) &&
+        Object.entries(value.positions[view]).every(([personId, position]) =>
+          position &&
+          peopleIds.has(personId) &&
+          Number.isFinite(position.x) &&
+          Number.isFinite(position.y)
+        ))
     );
 }
 
@@ -100,7 +122,8 @@ export function addPerson(tree, person) {
     name: cleanName,
     born: person.born.trim(),
     place: person.place.trim(),
-    story: person.story.trim()
+    story: person.story.trim(),
+    photo: person.photo ?? ""
   };
 
   return {
@@ -126,19 +149,47 @@ export function updatePerson(tree, personId, changes) {
           name: cleanName,
           born: changes.born.trim(),
           place: changes.place.trim(),
-          story: changes.story.trim()
+          story: changes.story.trim(),
+          photo: changes.photo ?? person.photo ?? ""
         }
       : person)
   };
 }
 
 export function deletePerson(tree, personId) {
+  const positions = tree.positions
+    ? Object.fromEntries(Object.entries(tree.positions).map(([view, viewPositions]) => [
+        view,
+        Object.fromEntries(Object.entries(viewPositions).filter(([id]) => id !== personId))
+      ]))
+    : undefined;
   return {
     ...tree,
     people: tree.people.filter((person) => person.id !== personId),
     relationships: tree.relationships.filter((relationship) =>
       relationship.from !== personId && relationship.to !== personId
-    )
+    ),
+    ...(positions ? { positions } : {})
+  };
+}
+
+export function movePerson(tree, personId, view, position) {
+  if (!["standard", "circle"].includes(view) ||
+      !tree.people.some((person) => person.id === personId) ||
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y)) {
+    throw new Error("Could not save this person's position.");
+  }
+
+  return {
+    ...tree,
+    positions: {
+      ...tree.positions,
+      [view]: {
+        ...tree.positions?.[view],
+        [personId]: { x: position.x, y: position.y }
+      }
+    }
   };
 }
 

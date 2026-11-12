@@ -4,10 +4,11 @@ import {
   deletePerson,
   getPersonConnections,
   loadTree,
+  movePerson,
   saveTree,
   updatePerson
-} from "./tree-model.js?v=2";
-import { renderTree } from "./tree-view.js?v=2";
+} from "./tree-model.js?v=3";
+import { movePersonNode, renderTree } from "./tree-view.js?v=3";
 
 const svg = document.querySelector("#family-tree");
 const viewport = document.querySelector("#tree-viewport");
@@ -17,16 +18,24 @@ const addPersonDialog = document.querySelector("#add-person-dialog");
 const connectionDialog = document.querySelector("#connection-dialog");
 const personForm = document.querySelector("#person-form");
 const connectionForm = document.querySelector("#connection-form");
+const photoInput = document.querySelector("#person-photo");
+const photoPreview = document.querySelector("#photo-preview");
+const photoPreviewImage = document.querySelector("#photo-preview-image");
+const photoPreviewPlaceholder = document.querySelector("#photo-preview-placeholder");
 const loadResult = loadTree();
 
 let tree = loadResult.tree;
-let layoutSize = { width: 720, height: 380 };
+let layoutSize = { x: 0, y: 0, width: 720, height: 380, positions: new Map(), mode: "standard" };
 let viewBox = { x: 0, y: 0, width: 720, height: 380 };
 let selectedPersonId = null;
 let hasNavigated = false;
 let pointerStart = null;
 let editingPersonId = null;
 let connectNewPersonToId = null;
+let viewMode = "standard";
+let photoProcessing = Promise.resolve();
+let photoSelection = 0;
+let suppressPersonClick = null;
 
 function showStatus(message) {
   status.textContent = message;
@@ -60,8 +69,8 @@ function fitTree() {
   const width = Math.max(layoutSize.width, layoutSize.height * aspectRatio);
   const height = Math.max(layoutSize.height, layoutSize.width / aspectRatio);
   setViewBox({
-    x: (layoutSize.width - width) / 2,
-    y: (layoutSize.height - height) / 2,
+    x: layoutSize.x - (width - layoutSize.width) / 2,
+    y: layoutSize.y - (height - layoutSize.height) / 2,
     width,
     height
   });
@@ -69,7 +78,7 @@ function fitTree() {
 }
 
 function render() {
-  layoutSize = renderTree(svg, tree);
+  layoutSize = renderTree(svg, tree, viewMode);
   fitTree();
 }
 
@@ -151,9 +160,12 @@ function openConnectionDialog(personId, relativeId) {
 }
 
 function openAddPerson(connectToId = null) {
+  photoSelection += 1;
   editingPersonId = null;
   connectNewPersonToId = connectToId;
   personForm.reset();
+  personForm.dataset.photo = "";
+  updatePhotoPreview("");
   document.querySelector("#add-person-title").textContent = "Add a person";
   document.querySelector("#person-submit").textContent = "Add to the tree";
   document.querySelector("#person-error").textContent = "";
@@ -164,12 +176,16 @@ function openEditPerson(personId) {
   const person = tree.people.find((item) => item.id === personId);
   if (!person) return;
 
+  photoSelection += 1;
   editingPersonId = personId;
   connectNewPersonToId = null;
   personForm.elements.name.value = person.name;
   personForm.elements.born.value = person.born;
   personForm.elements.place.value = person.place;
   personForm.elements.story.value = person.story;
+  personForm.dataset.photo = person.photo ?? "";
+  photoInput.value = "";
+  updatePhotoPreview(personForm.dataset.photo);
   document.querySelector("#add-person-title").textContent = "Edit details";
   document.querySelector("#person-submit").textContent = "Save changes";
   document.querySelector("#person-error").textContent = "";
@@ -188,14 +204,73 @@ document.querySelector("#person-add-connection").addEventListener("click", () =>
   openConnectionDialog(selectedPersonId);
 });
 
-personForm.addEventListener("submit", (event) => {
+function updatePhotoPreview(photo) {
+  photoPreview.hidden = !photo;
+  photoPreviewImage.hidden = !photo;
+  photoPreviewPlaceholder.hidden = Boolean(photo);
+  if (photo) photoPreviewImage.src = photo;
+  else photoPreviewImage.removeAttribute("src");
+}
+
+async function encodePhoto(file) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose an image file for the profile photo.");
+  }
+  if (file.size > 8_000_000) {
+    throw new Error("Choose a photo smaller than 8 MB.");
+  }
+
+  const image = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  const size = 256;
+  canvas.width = size;
+  canvas.height = size;
+  const scale = Math.max(size / image.width, size / image.height);
+  const width = image.width * scale;
+  const height = image.height * scale;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    image.close();
+    throw new Error("This browser could not process the photo.");
+  }
+  context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+  image.close();
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
+photoInput.addEventListener("change", () => {
+  const file = photoInput.files[0];
+  if (!file) return;
+  const selection = ++photoSelection;
+  photoProcessing = encodePhoto(file).then((photo) => {
+    if (selection !== photoSelection) return;
+    personForm.dataset.photo = photo;
+    updatePhotoPreview(photo);
+    document.querySelector("#person-error").textContent = "";
+  }).catch((error) => {
+    if (selection !== photoSelection) return;
+    photoInput.value = "";
+    document.querySelector("#person-error").textContent = error.message;
+  });
+});
+
+document.querySelector("#remove-photo").addEventListener("click", () => {
+  photoSelection += 1;
+  photoInput.value = "";
+  personForm.dataset.photo = "";
+  updatePhotoPreview("");
+});
+
+personForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  await photoProcessing;
   const values = new FormData(personForm);
   const details = {
     name: values.get("name"),
     born: values.get("born"),
     place: values.get("place"),
-    story: values.get("story")
+    story: values.get("story"),
+    photo: personForm.dataset.photo ?? ""
   };
   try {
     const nextTree = editingPersonId
@@ -245,6 +320,10 @@ document.querySelector("#person-connections").addEventListener("click", (event) 
 document.querySelector("#zoom-in").addEventListener("click", () => zoom(0.8));
 document.querySelector("#zoom-out").addEventListener("click", () => zoom(1.25));
 document.querySelector("#zoom-level").addEventListener("click", fitTree);
+document.querySelector("#view-mode").addEventListener("change", (event) => {
+  viewMode = event.currentTarget.value;
+  render();
+});
 
 svg.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]");
@@ -271,7 +350,13 @@ svg.addEventListener("click", (event) => {
   }
 
   const node = event.target.closest(".person-node");
-  if (node) openPerson(node.dataset.personId);
+  if (node) {
+    if (suppressPersonClick === node.dataset.personId) {
+      suppressPersonClick = null;
+      return;
+    }
+    openPerson(node.dataset.personId);
+  }
 });
 
 svg.addEventListener("keydown", (event) => {
@@ -283,9 +368,30 @@ svg.addEventListener("keydown", (event) => {
 });
 
 viewport.addEventListener("pointerdown", (event) => {
-  if (event.target.closest(".person-node")) return;
+  const personNode = event.target.closest(".person-node");
+  if (personNode) {
+    if (event.target.closest("[data-action]")) return;
+    const position = layoutSize.positions.get(personNode.dataset.personId);
+    if (!position) return;
+    pointerStart = {
+      pointerId: event.pointerId,
+      type: "person",
+      personId: personNode.dataset.personId,
+      moved: false,
+      x: event.clientX,
+      y: event.clientY,
+      position: { ...position },
+      captureTarget: personNode
+    };
+    personNode.setPointerCapture(event.pointerId);
+    viewport.classList.add("is-dragging-person");
+    event.preventDefault();
+    return;
+  }
   pointerStart = {
     pointerId: event.pointerId,
+    type: "pan",
+    captureTarget: viewport,
     x: event.clientX,
     y: event.clientY,
     viewX: viewBox.x,
@@ -298,6 +404,28 @@ viewport.addEventListener("pointerdown", (event) => {
 viewport.addEventListener("pointermove", (event) => {
   if (!pointerStart || pointerStart.pointerId !== event.pointerId) return;
   const bounds = viewport.getBoundingClientRect();
+  if (pointerStart.type === "person") {
+    if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 4) {
+      pointerStart.moved = true;
+    }
+    const dimensions = viewMode === "circle"
+      ? { width: 164, height: 148 }
+      : { width: 218, height: 112 };
+    const position = {
+      x: Math.min(
+        layoutSize.x + layoutSize.width - dimensions.width - 12,
+        Math.max(layoutSize.x + 12, pointerStart.position.x + (event.clientX - pointerStart.x) * (viewBox.width / bounds.width))
+      ),
+      y: Math.min(
+        layoutSize.y + layoutSize.height - dimensions.height - 12,
+        Math.max(layoutSize.y + 12, pointerStart.position.y + (event.clientY - pointerStart.y) * (viewBox.height / bounds.height))
+      )
+    };
+    movePersonNode(svg, tree, layoutSize, pointerStart.personId, position);
+    hasNavigated = true;
+    return;
+  }
+
   setViewBox({
     ...viewBox,
     x: pointerStart.viewX - (event.clientX - pointerStart.x) * (viewBox.width / bounds.width),
@@ -308,10 +436,28 @@ viewport.addEventListener("pointermove", (event) => {
 
 function stopPanning(event) {
   if (pointerStart?.pointerId !== event.pointerId) return;
+  const completedDrag = pointerStart;
   pointerStart = null;
   viewport.classList.remove("is-dragging");
-  if (viewport.hasPointerCapture(event.pointerId)) {
-    viewport.releasePointerCapture(event.pointerId);
+  viewport.classList.remove("is-dragging-person");
+  if (completedDrag.captureTarget.hasPointerCapture(event.pointerId)) {
+    completedDrag.captureTarget.releasePointerCapture(event.pointerId);
+  }
+  if (completedDrag.type === "person") {
+    if (completedDrag.moved) {
+      suppressPersonClick = completedDrag.personId;
+      window.setTimeout(() => {
+        suppressPersonClick = null;
+      }, 300);
+    }
+    tree = movePerson(tree, completedDrag.personId, viewMode, layoutSize.positions.get(completedDrag.personId));
+    try {
+      saveTree(tree);
+      showStatus("Person moved. Your tree is saved in this browser.");
+    } catch (error) {
+      console.error("Could not save the person's position:", error);
+      showStatus("Person moved, but the position could not be saved in this browser.");
+    }
   }
 }
 
