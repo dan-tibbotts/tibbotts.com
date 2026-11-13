@@ -76,6 +76,7 @@ try {
     "project-record-browser.mjs",
     "costing-browser.mjs",
     "hardening-browser.mjs",
+    "portal-browser.mjs",
     "startup-browser.mjs",
     "deployment-browser.mjs",
   ]) {

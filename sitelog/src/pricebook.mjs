@@ -1,6 +1,6 @@
 import { normalDecimal, decimalUnits, convertedUnitCost } from "./money.mjs";
 import { zonedInstant } from "./domain.mjs";
-export const CONTACT_ROLES = ["customer", "supplier", "subcontractor"];
+export const CONTACT_ROLES = ["customer", "prospect", "quote_recipient", "supplier", "subcontractor"];
 export const UOMS = [
   "ea",
   "m",

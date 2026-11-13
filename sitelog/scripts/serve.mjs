@@ -1,7 +1,8 @@
+import { createPortalHandler } from "../server/portal-http.mjs";
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildApplication, appRoot } from "./build.mjs";
 const root = resolve(appRoot, ".."),
   outDir = resolve(process.env.SITELOG_BUILD_DIR || resolve(appRoot, ".build"));
@@ -25,6 +26,8 @@ const types = {
   ".png": "image/png",
   ".txt": "text/plain; charset=utf-8",
 };
+const portalConfiguration = process.env.SITELOG_PORTAL_ADAPTER ? await import(pathToFileURL(resolve(process.env.SITELOG_PORTAL_ADAPTER)).href) : {};
+const portalHandler = createPortalHandler(portalConfiguration);
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://localhost"),
@@ -60,6 +63,7 @@ const server = createServer(async (req, res) => {
       );
       return;
     }
+    if (await portalHandler(req, res)) return;
     const active = JSON.parse(
       await readFile(resolve(outDir, "active.json"), "utf8"),
     );

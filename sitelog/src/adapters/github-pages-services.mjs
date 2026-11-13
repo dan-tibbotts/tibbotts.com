@@ -1,3 +1,5 @@
+import { initializePortalDemo } from "../portal-demo.mjs";
+import * as portal from "../portal-service.mjs";
 import * as auth from "../mock-auth.mjs";
 import * as workspace from "../mock-api.mjs";
 import * as commercial from "../commercial-service.mjs";
@@ -19,6 +21,7 @@ export class GitHubPagesServices {
     this.capabilities = Object.freeze({ demo: true, remote: false });
     Object.assign(this, {
       auth,
+      portal,
       workspace,
       commercial,
       quotes,
@@ -40,7 +43,7 @@ export class GitHubPagesServices {
   initialize() {
     if (!this.initialization) {
       configureStore("sitelog-mockup-v1");
-      this.initialization = seed().catch((error) => {
+      this.initialization = seed().then(initializePortalDemo).catch((error) => {
         const failure = new Error(
           error.message || "Device storage is unavailable.",
         );

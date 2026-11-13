@@ -1,3 +1,4 @@
+import { partyFromContact } from "./party-domain.mjs";
 import {
   commercialMutation as mutate,
   recordCommercialChange as commit,
@@ -32,10 +33,10 @@ export async function commercialWorkspace() {
 }
 export function saveContact(input, { expectedRevision = 0 } = {}) {
   const value = validateContact(input);
-  return mutate(["contacts"], (data, s, actor) => {
+  return mutate(["contacts", "parties"], (data, s, actor) => {
     const prior = data.contacts.find((c) => c.id === input.id);
     assertRevision(expectedRevision, prior?.revision || 0);
-    return commit(
+    const contact = commit(
       "contacts",
       {
         ...value,
@@ -49,6 +50,9 @@ export function saveContact(input, { expectedRevision = 0 } = {}) {
       s,
       actor,
     );
+    const party = data.parties.find((p) => p.id === contact.id);
+    s.parties.put(party ? {...party, name: contact.name, active: contact.active, revision: (party.revision || 0) + 1} : partyFromContact(contact));
+    return contact;
   });
 }
 export function decideApproval(

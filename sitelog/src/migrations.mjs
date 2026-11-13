@@ -1,6 +1,7 @@
+import { partyFromContact } from "./party-domain.mjs";
 // Additive IndexedDB upgrades. Keep the database name and every existing record/ID.
 export const DATABASE_NAME = "sitelog-mockup-v1";
-export const DATABASE_VERSION = 8;
+export const DATABASE_VERSION = 9;
 export const STORES = [
   "meta",
   "users",
@@ -39,6 +40,9 @@ export const STORES = [
   "variationSnapshots",
   "jobCostRates",
   "costCommitments",
+  "parties", "partyContacts", "partyRepresentatives",
+  "quoteAcceptanceBatches", "quoteAcceptances", "workAuthorisations",
+  "jobInstructions", "jobRFIs", "jobIssues", "variationRequests", "jobActivity",
 ];
 export function upgradeDatabase(db, tx, oldVersion) {
   for (const name of STORES)
@@ -68,10 +72,6 @@ export function upgradeDatabase(db, tx, oldVersion) {
   index("inspectionEvents", "byInspection", "inspectionId");
   index(
     "documentVersions",
-    "variations",
-    "variationSnapshots",
-    "jobCostRates",
-    "costCommitments",
     "byDocumentVersion",
     ["documentId", "version"],
     true,
@@ -80,6 +80,20 @@ export function upgradeDatabase(db, tx, oldVersion) {
   index("variations", "byJob", "jobId");
   index("variationSnapshots", "byVariation", "variationId");
   index("jobCostRates", "byJobEffective", ["jobId", "effectiveFrom"]);
+  index("partyRepresentatives", "byUserParty", ["userId", "partyId"]);
+  index("quoteAcceptanceBatches", "byRequest", ["actorId", "requestId"], true);
+  index("quoteAcceptances", "byIssue", "issueId", true);
+  for (const table of ["workAuthorisations", "jobInstructions", "jobRFIs", "jobIssues", "variationRequests", "jobActivity"]) index(table, "byJob", "jobId");
+  if (oldVersion < 9) {
+    const cursor = tx.objectStore("contacts").openCursor();
+    cursor.onsuccess = () => {
+      const item = cursor.result;
+      if (!item) return;
+      tx.objectStore("parties").put(partyFromContact(item.value));
+      item.continue();
+    };
+    tx.objectStore("meta").put({id: "migration:9", value: {version: 9, policy: "additive parties and structured client workflows; no inferred authority", upgradedAt: new Date().toISOString()}});
+  }
   if (oldVersion < 8)
     tx.objectStore("meta").put({
       id: "migration:8",

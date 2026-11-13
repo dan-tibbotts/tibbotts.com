@@ -2719,3 +2719,24 @@ dialog::backdrop {
   .form-page .field input, .form-page .field select, .form-page .field textarea { min-width: 0; }
   .form-page .form-footer .button { min-height: 44px; white-space: normal; }
 }
+
+/* Structured client and office workflows share the existing shell and page forms. */
+.portal-panel { padding: 22px; margin-bottom: 22px; overflow: visible; }
+.portal-panel > h2 { margin-bottom: 14px; }
+.portal-panel p { margin-block: 10px; }
+.portal-record { padding: 18px 0; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere; }
+.portal-record:last-child { border-bottom: 0; }
+.portal-prose { white-space: pre-wrap; }
+.portal-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-block: 12px; }
+.portal-commitment { display: flex; justify-content: space-between; gap: 16px; align-items: center; background: #edf2e9; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+.portal-job-tabs { overflow-x: auto; margin-bottom: 20px; display: flex; gap: 8px; padding-bottom: 8px; }
+.portal-job-tabs .tab { flex-shrink: 0; }
+.portal-activity { padding-left: 20px; }
+.portal-activity li { padding: 10px 0; }
+.portal-panel li, .form-page li { margin-bottom: 8px; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .portal-panel { padding: 18px; }
+  .portal-commitment { align-items: stretch; flex-direction: column; }
+  .portal-actions .button { white-space: normal; }
+  .portal-record .section-title { align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+}

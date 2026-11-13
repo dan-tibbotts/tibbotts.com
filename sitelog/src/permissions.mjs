@@ -1,3 +1,4 @@
+import { portalSnapshot, jobRequirements } from "./portal-read-model.mjs";
 import { jobClient } from "./job-labels.mjs";
 import { workerDocumentAllowed } from "./document-domain.mjs";
 import { canAccessJob } from "./domain.mjs";
@@ -93,6 +94,10 @@ export function projectWorkspace(data, user) {
       ...Object.fromEntries(Object.keys(data).map((k) => [k, []])),
       meta: [],
     };
+  if (user.role === "client") {
+    const portal = portalSnapshot(data, user);
+    return { ...Object.fromEntries(Object.keys(data).map((k) => [k, []])), users: data.users.map((u) => pick(u, ["id", "displayName", "initials", "role", "active"])), meta: data.meta.filter((m) => ["session", "network", "uploadPolicy"].includes(m.id)), portal };
+  }
   if (user.role === "office_admin")
     return {
       ...data,
@@ -133,6 +138,7 @@ export function projectWorkspace(data, user) {
       pick(u, ["id", "displayName", "initials", "role", "active"]),
     ),
     jobs: jobs.map((j) => ({ ...pick(j, JOB_FIELDS), clientName: jobClient(j, data) })),
+    jobRequirements: Object.fromEntries(jobs.map((j) => [j.id, jobRequirements(data, user, j.id)])),
     timesheets,
     notes: data.notes
       .filter((n) => jobIds.has(n.jobId))

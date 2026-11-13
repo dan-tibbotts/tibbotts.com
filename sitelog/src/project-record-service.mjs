@@ -293,6 +293,7 @@ export function saveDecision(input, { expectedRevision = 0 } = {}) {
     inspectionId: input.inspectionId || null,
     documentIds: [...new Set(input.documentIds || [])],
     sharedWithWorkers: input.sharedWithWorkers === true,
+    sharedWithClients: input.sharedWithClients === true,
   };
   return mutate(
     [

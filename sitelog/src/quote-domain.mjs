@@ -104,8 +104,8 @@ export function basicLine(input) {
 export function issueProblems(quote, customer, branding) {
   const issues = [];
   if (!quote.title || !quote.scope) issues.push("Enter the title and scope.");
-  if (!customer?.active || !customer.roles.includes("customer"))
-    issues.push("Choose an active customer.");
+  if (!customer?.active || !customer.roles.some((r) => ["customer", "prospect", "quote_recipient"].includes(r)))
+    issues.push("Choose an active quote recipient.");
   if (!quote.siteAddress && quote.lat === null)
     issues.push("Record the site address or coordinates.");
   if (!quote.expiryDate) issues.push("Set an expiry date.");

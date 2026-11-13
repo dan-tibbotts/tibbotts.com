@@ -161,7 +161,7 @@ export function mediaAllowed(policy, network, override = false) {
 export function canAccessJob(user, job) {
   return (
     !!user?.active &&
-    (user.role === "office_admin" || job.workerIds.includes(user.id))
+    (user.role === "office_admin" || (user.role === "worker" && job.workerIds.includes(user.id)))
   );
 }
 export function csvCell(value) {

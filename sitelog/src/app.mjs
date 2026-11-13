@@ -1,3 +1,4 @@
+import { portalClientShell, portalOfficeView, portalAction, requirementsMarkup } from "./portal-ui.mjs";
 import { enhanceJobSelects, jobClient, jobSearchText } from "./job-combobox.mjs";
 import { services } from "./services.mjs";
 import { backupView, backupAction } from "./backup-ui.mjs";
@@ -83,6 +84,7 @@ const state = {
   recordTab: "all",
   user: null,
   data: null,
+  portalData: null,
   currentJobId: null,
   urls: [],
   galleryUrls: [],
@@ -140,8 +142,8 @@ const navItems = [
   ["media", "photo", "Photos & videos"],
 ];
 const officeGroups = [
-  ["Office", [["overview", "Job overview", "job"]]],
-  ["Commercial", [["quotes", "Quotes", "note"], ["pricebook", "Price book", "briefcase"], ["contacts", "Contacts & approvals", "people"], ["variations", "Variations", "note"], ["costing", "Job costing", "briefcase"], ["terms", "Terms", "note"]]],
+  ["Office", [["overview", "Job overview", "job"], ["client-actions", "Client actions", "note"], ["requirements", "Requirements & authority", "check"]]],
+  ["Commercial", [["parties", "Parties & representatives", "people"], ["quotes", "Quotes", "note"], ["pricebook", "Price book", "briefcase"], ["contacts", "Contacts & approvals", "people"], ["variations", "Variations", "note"], ["costing", "Job costing", "briefcase"], ["terms", "Terms", "note"]]],
   ["Project delivery", [["planning", "Schedule", "calendar"], ["materials", "Materials & orders", "job"], ["inspections", "Inspections", "check"], ["documents", "Documents", "note"], ["decisions", "Decisions", "note"], ["timeline", "Site progress", "history"]]],
   ["Team", [["timesheets", "Timesheets", "clock"], ["people", "People & invites", "people"], ["hours", "Usual hours", "calendar"]]],
   ["Workspace", [["backup", "Backup & restore", "download"]]],
@@ -206,6 +208,7 @@ function refresh() {
       state.storageWarning =
         capacity?.quota && capacity.usage / capacity.quota > 0.8;
       state.user = await auth.currentUser();
+      state.portalData = state.user?.role === "client" ? state.data.portal : state.user?.role === "office_admin" ? await services.portal.workspace() : null;
       if (state.user)
         state.currentJobId = metaValue(`currentJob:${state.user.id}`, null);
       render();
@@ -228,6 +231,12 @@ function render() {
   state.galleryUrls = [];
   if (!state.user) {
     renderLogin();
+    return;
+  }
+  if (state.user.role === "client") {
+    root.innerHTML = portalClientShell(state.portalData, { formPage: !!formPage, version: versionLabel() });
+    if (formPage) root.querySelector("#form-page-slot").append(formPage);
+    enhanceJobSelects(root, state.portalData);
     return;
   }
   if (state.page === "office" && state.user.role !== "office_admin")
@@ -401,6 +410,7 @@ function officePage() {
   return `${heading("Office admin", state.officeTab === "overview" ? "Office admin" : title, "Less chasing paperwork. More clarity across your jobs.", button("New job", "new-job", "button primary", "plus"))}<details class="mobile-office-menu"><summary>Office menu</summary><nav aria-label="Office sections">${officeNavigation()}</nav></details>${state.officeTab === "overview" ? `<div class="stats-grid"><div class="stat-card"><small>Active jobs</small><strong>${jobs.filter((j) => j.status === "active").length}</strong></div><div class="stat-card"><small>Recorded labour</small><strong>${hours(minutes)}</strong></div></div>` : ""}${state.officeTab === "timesheets" ? button("Export CSV", "export", "button", "download") : ""}${officeSection()}`;
 }
 function officeSection() {
+  if (["parties", "client-actions", "requirements"].includes(state.officeTab)) return portalOfficeView(state.portalData, state.officeTab);
   if (state.officeTab === "backup") return backupView();
   if (["variations", "costing"].includes(state.officeTab))
     return financeView(state.officeTab, state.data);
@@ -455,7 +465,7 @@ function officeSection() {
     return `<section class="panel"><div class="panel-header"><h2>Your people</h2>${button("Invite person", "invite", "button primary", "plus")}</div><div class="table-scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Assignments</th></tr></thead><tbody>${state.data.users
       .map(
         (u) =>
-          `<tr><td><strong>${e(u.displayName)}</strong></td><td>${e(u.email)}</td><td><span class="pill">${u.role === "office_admin" ? "Office admin" : "Worker"}</span></td><td>${
+          `<tr><td><strong>${e(u.displayName)}</strong></td><td>${e(u.email)}</td><td><span class="pill">${u.role === "office_admin" ? "Office admin" : u.role === "client" ? "Client representative" : "Worker"}</span></td><td>${
             u.role === "office_admin"
               ? "All jobs"
               : state.data.jobs
@@ -921,7 +931,7 @@ async function jobDetail(id) {
   modal(
     e(job.name),
     `${e(job.code)} · ${e(job.category)}`,
-    `${state.user.role === "office_admin" ? `<div class="notice ${job.authorisationId ? "" : "warning"}"><p>${job.sourceQuoteId ? `Accepted quote linked. ${button("View source quote", `quote-view:${job.sourceQuoteId}`, "text-button")}` : job.authorisationId ? "Direct-work authorisation recorded." : "Acceptance details need review. Existing records and worker access are preserved."}</p></div>` : ""}<div class="site-detail-visual">${jobPhotoMarkup(job)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${!Number.isFinite(job.lat) || !Number.isFinite(job.lng) ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div>${state.user.role === "worker" ? workerJobRecords(state.data, id) : ""}<div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
+    `${state.user.role === "office_admin" ? `<div class="notice ${job.authorisationId ? "" : "warning"}"><p>${job.sourceQuoteId ? `Accepted quote linked. ${button("View source quote", `quote-view:${job.sourceQuoteId}`, "text-button")}` : job.authorisationId ? "Direct-work authorisation recorded." : "Acceptance details need review. Existing records and worker access are preserved."}</p></div>` : ""}<div class="site-detail-visual">${jobPhotoMarkup(job)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${!Number.isFinite(job.lat) || !Number.isFinite(job.lng) ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div>${state.user.role === "worker" ? `<section class="setting-section"><h3>Current job requirements</h3>${requirementsMarkup(state.data.jobRequirements?.[id])}</section>${workerJobRecords(state.data, id)}` : ""}<div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
   );
   await hydrateJobPhotos(dialog, state.data.jobs, state.data.media, (url) =>
     state.urls.push(url),
@@ -996,7 +1006,7 @@ async function inviteForm() {
   modal(
     "Invite a person",
     "Add a local demo account. No email will be sent.",
-    `<form>${field("Full name", "displayName", "", "text", 'required maxlength="100"')}${field("Email address", "email", "", "email", 'required maxlength="254"')}<label class="field"><span>Role</span><select name="role"><option value="worker">Worker</option><option value="office_admin">Office admin</option></select></label><div class="notice">${icon("info")}<p>This account becomes available in the demo role switcher. Assign jobs from the job editor.</p></div>${formFooter("Create demo invite")}</form>`,
+    `<form>${field("Full name", "displayName", "", "text", 'required maxlength="100"')}${field("Email address", "email", "", "email", 'required maxlength="254"')}<label class="field"><span>Role</span><select name="role"><option value="worker">Worker</option><option value="office_admin">Office admin</option><option value="client">Client representative</option></select></label><div class="notice">${icon("info")}<p>This account becomes available in the demo role switcher. Grant client party access separately under Parties & representatives.</p></div>${formFooter("Create demo invite")}</form>`,
     async (f) => {
       await api.inviteUser(Object.fromEntries(f));
       closeModal();
@@ -1041,7 +1051,7 @@ function settings() {
       .filter((u) => u.active)
       .map(
         (u) =>
-          `<button class="persona-button ${u.id === user.id ? "active" : ""}" data-action="persona:${u.id}"><span class="avatar">${e(u.initials)}</span><span><strong>${e(u.displayName)}</strong><small>${u.role === "office_admin" ? "Office admin" : "Worker"}</small></span></button>`,
+          `<button class="persona-button ${u.id === user.id ? "active" : ""}" data-action="persona:${u.id}"><span class="avatar">${e(u.initials)}</span><span><strong>${e(u.displayName)}</strong><small>${u.role === "office_admin" ? "Office admin" : u.role === "client" ? "Client representative" : "Worker"}</small></span></button>`,
       )
       .join(
         "",
@@ -1261,6 +1271,7 @@ function renderLogin() {
   root.innerHTML = `<header class="login-version-header"><a class="brand" href="/sitelog/">SiteLog</a>${versionLabel()}</header><main class="login-page"><section class="login-intro"><a class="brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a><h1>Record the work.<br><em>Get on with your day.</em></h1><p>Simple site records, less paperwork. Time, notes, photos and videos — all in one place, even when you’re offline.</p><p class="snapshot-label">LOCAL CONCEPT · FICTIONAL DATA ONLY</p></section><section class="login-form-wrap"><div class="login-form"><p class="eyebrow">Welcome to your workspace</p><h2>${state.loginEmail ? "Check your demo code" : "Let’s get you on site."}</h2><p>${state.loginEmail ? "No email is sent. Use the code shown below to try the sign-in experience." : "Try a fictional account below, or explore the invite-only sign-in flow."}</p>${state.demoCode ? `<div class="demo-code">Local mock email · ${e(state.loginEmail)}<strong>${e(state.demoCode)}</strong>For this demo only. Expires in 10 minutes.</div>` : ""}<form id="login-form">${state.loginEmail ? `${field("One-time demo code", "code", "", "text", 'required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"')}` : field("Invited email address", "email", "alex@example.test", "email", 'required autocomplete="email"')}<p class="form-error" role="alert"></p><button type="submit" class="button primary full">${state.loginEmail ? "Sign in" : "Get demo code"}${icon("arrow")}</button>${state.loginEmail ? button("Use another email", "login-back", "text-button") : ""}</form><div class="login-divider">OR EXPLORE A DEMO ACCOUNT</div><div class="persona-grid">${[
     ["alex", "Alex Taylor", "Worker"],
     ["morgan", "Morgan Reed", "Office admin"],
+    ["casey", "Casey Wilson", "Client representative"],
   ]
     .map(
       ([id, name, role]) =>
@@ -1340,6 +1351,12 @@ async function action(value, event) {
   const split = value.indexOf(":"),
     name = split < 0 ? value : value.slice(0, split),
     id = split < 0 ? "" : value.slice(split + 1);
+  if (name.startsWith("portal-")) {
+    return portalAction(name, id, state.portalData || { parties: [], jobInstructions: Object.values(state.data.jobRequirements || {}).flatMap((r) => r.instructions) }, {
+      modal, footer: formFooter, close: closeModal, toast, staffData: state.data,
+      refresh: async () => { await refresh(); notify(); },
+    });
+  }
   if (name === "repeat-photo") {
     const photo = state.data.media.find(
       (m) =>

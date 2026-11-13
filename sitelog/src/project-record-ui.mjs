@@ -75,7 +75,7 @@ export function projectView(tab, data, { query = "" } = {}) {
         const v = data.documentVersions.find(
           (v) => v.id === d.currentVersionId,
         );
-        return `<article class="schedule-person"><div class="section-title"><h3>${e(d.title)}</h3>${button("Versions / access", `project-document:${d.id}`, "button", "history")}</div><p>${e(jobName(data, d.jobId))} · ${e(d.category)} · ${d.active ? "Active" : "Archived"} · ${d.visibility === "workers" ? "Shared with assigned workers" : "Office only"}</p><p class="form-help">Current version ${d.version} · ${e(v?.filename)} · ${v ? bytes(v.size) : "File metadata unavailable"}</p>${button("Download current", `document-download:${d.id}`, "button", "download")}</article>`;
+        return `<article class="schedule-person"><div class="section-title"><h3>${e(d.title)}</h3>${button("Versions / access", `project-document:${d.id}`, "button", "history")}</div><p>${e(jobName(data, d.jobId))} · ${e(d.category)} · ${d.active ? "Active" : "Archived"} · ${d.visibility === "workers" ? "Shared with assigned workers" : d.visibility === "clients" ? "Shared with clients" : "Office only"}</p><p class="form-help">Current version ${d.version} · ${e(v?.filename)} · ${v ? bytes(v.size) : "File metadata unavailable"}</p>${button("Download current", `document-download:${d.id}`, "button", "download")}${button("Client sharing", `portal-share-document:${d.id}`, "button")}</article>`;
       })
       .join("") ||
     empty(
@@ -218,13 +218,14 @@ export async function projectAction(action, id, context) {
     form(
       d.id ? "Revise decision" : "Record decision",
       "Edits retain an immutable before/after audit history.",
-      `${select("Job", "jobId", jobs, d.jobId)}${field("Title", "title", d.title, "text", "required")}${area("Decision and why", "summary", d.summary, true)}${field("Decision date", "decisionDate", d.decisionDate, "date", "required")}${field("Responsible party", "responsibleParty", d.responsibleParty)}${area("Action", "action", d.action)}${field("Target date (optional)", "targetDate", d.targetDate, "date")}${select("Accepted quote (optional)", "quoteId", [["", "None"], ...data.quotes.filter((q) => q.status === "accepted").map((q) => [q.id, q.number])], d.quoteId)}${select("Related inspection (optional)", "inspectionId", [["", "None"], ...data.jobInspections.map((i) => [i.id, i.description])], d.inspectionId)}${select("Related variation (optional)", "variationId", [["", "None"], ...data.variations.map((v) => [v.id, `${v.number} · ${v.title}`])], d.variationId)}${attachments(data.documents, d.documentIds)}${shared(d.sharedWithWorkers)}`,
+      `${select("Job", "jobId", jobs, d.jobId)}${field("Title", "title", d.title, "text", "required")}${area("Decision and why", "summary", d.summary, true)}${field("Decision date", "decisionDate", d.decisionDate, "date", "required")}${field("Responsible party", "responsibleParty", d.responsibleParty)}${area("Action", "action", d.action)}${field("Target date (optional)", "targetDate", d.targetDate, "date")}${select("Accepted quote (optional)", "quoteId", [["", "None"], ...data.quotes.filter((q) => q.status === "accepted").map((q) => [q.id, q.number])], d.quoteId)}${select("Related inspection (optional)", "inspectionId", [["", "None"], ...data.jobInspections.map((i) => [i.id, i.description])], d.inspectionId)}${select("Related variation (optional)", "variationId", [["", "None"], ...data.variations.map((v) => [v.id, `${v.number} · ${v.title}`])], d.variationId)}${attachments(data.documents, d.documentIds)}${shared(d.sharedWithWorkers)}<label class="checkbox"><input type="checkbox" name="sharedWithClients" ${d.sharedWithClients ? "checked" : ""}> Share this formal decision with authorised clients</label>`,
       (f) =>
         saveDecision(
           {
             ...Object.fromEntries(f),
             id: d.id,
             sharedWithWorkers: f.has("sharedWithWorkers"),
+            sharedWithClients: f.has("sharedWithClients"),
             documentIds: f.getAll("documentIds"),
           },
           { expectedRevision: d.revision || 0 },
@@ -316,6 +317,7 @@ export async function projectAction(action, id, context) {
         [
           ["office", "Office only"],
           ["workers", "Explicitly share with assigned workers"],
+          ...(d.visibility === "clients" ? [["clients", "Shared with authorised clients"]] : []),
         ],
         d.visibility,
       )}<label class="checkbox"><input type="checkbox" name="active" ${d.active ? "checked" : ""}> Active document</label>${area("Reason for change", "reason", "", true)}`,

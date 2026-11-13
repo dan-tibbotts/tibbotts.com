@@ -197,8 +197,8 @@ function renderEditor(context) {
   context.modal(
     v.id ? `Edit ${e(editor.prior.number)}` : "New standalone quote",
     "Drafts are local; central saves require a connection.",
-    `<form id="quote-editor"><div class="tabs">${tabs.map((t) => button(t[0].toUpperCase() + t.slice(1), `quote-editor-tab:${t}`, `tab ${tab === t ? "active" : ""}`)).join("")}</div><section data-quote-panel="items" ${tab !== "items" ? "hidden" : ""}><div class="form-grid">${field("Title", "title", v.title)}<label class="field"><span>Customer (optional until issue)</span><select name="customerId">${option("", "Not selected", v.customerId)}${data.contacts
-      .filter((c) => c.active && c.roles.includes("customer"))
+    `<form id="quote-editor"><div class="tabs">${tabs.map((t) => button(t[0].toUpperCase() + t.slice(1), `quote-editor-tab:${t}`, `tab ${tab === t ? "active" : ""}`)).join("")}</div><section data-quote-panel="items" ${tab !== "items" ? "hidden" : ""}><div class="form-grid">${field("Title", "title", v.title)}<label class="field"><span>Quote recipient (optional until issue)</span><select name="customerId">${option("", "Not selected", v.customerId)}${data.contacts
+      .filter((c) => c.active && c.roles.some((r) => ["customer", "prospect", "quote_recipient"].includes(r)))
       .map((c) => option(c.id, c.name, v.customerId))
       .join(
         "",

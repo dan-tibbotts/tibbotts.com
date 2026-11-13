@@ -1,5 +1,6 @@
 // Service ports consumed by the UI and sync engine. Domain/storage helpers stay separate.
 export const SERVICE_CONTRACT = Object.freeze({
+  portal: ["workspace", "command", "downloadDocument", "createDemoQuotes"],
   auth: [
     "currentUser",
     "requireUser",

@@ -154,11 +154,12 @@ export function updateDocument(
 ) {
   if (
     !DOCUMENT_CATEGORIES.includes(category) ||
-    !["office", "workers"].includes(visibility)
+    !["office", "workers", "clients"].includes(visibility)
   )
     throw new Error("Choose a valid category and sharing setting.");
   if (visibility === "workers" && OFFICE_DOCUMENT_CATEGORIES.includes(category))
     throw new Error("Commercial document categories are office only.");
+  if (visibility === "clients" && category === "purchase orders") throw new Error("Purchase orders are internal only.");
   const value = {
     title: text(title, "Document title", 200, { required: true }),
     category,
@@ -172,6 +173,7 @@ export function updateDocument(
     const prior = data.documents.find((d) => d.id === id);
     if (!prior) throw new Error("Document unavailable.");
     assertRevision(expectedRevision, prior.revision);
+    if (visibility === "clients" && prior.visibility !== "clients") throw new Error("Use Client sharing to review and explicitly share this document.");
     return commit(
       "documents",
       { ...prior, ...value },

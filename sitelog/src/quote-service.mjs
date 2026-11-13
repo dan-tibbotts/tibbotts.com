@@ -222,10 +222,10 @@ export function saveQuote(input, { expectedRevision = 0 } = {}) {
         (c) =>
           c.id === header.customerId &&
           c.active &&
-          c.roles.includes("customer"),
+          c.roles.some((r) => ["customer", "prospect", "quote_recipient"].includes(r)),
       )
     )
-      throw new Error("Choose an active customer.");
+      throw new Error("Choose an active quote recipient.");
     const lines = resolveLines(input.lines || [], prior, data, header),
       amounts = quoteAmounts(lines, header.taxBps);
     const inspections = (input.inspections || []).map((p) => ({
@@ -251,6 +251,11 @@ export function saveQuote(input, { expectedRevision = 0 } = {}) {
       "quotes",
       {
         ...header,
+        requestedByPartyId: prior?.requestedByPartyId || header.customerId,
+        clientPartyId: header.customerId,
+        payingPartyId: prior?.payingPartyId || header.customerId,
+        authorisedRepresentativeId: prior?.authorisedRepresentativeId || null,
+        siteContactId: prior?.siteContactId || null,
         id: prior?.id,
         number,
         lines,

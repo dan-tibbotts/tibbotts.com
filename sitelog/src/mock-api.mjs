@@ -36,7 +36,7 @@ export async function inviteUser({ email, displayName, role }) {
   if (
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     !displayName.trim() ||
-    !["worker", "office_admin"].includes(role)
+    !["worker", "office_admin", "client"].includes(role)
   )
     throw new Error("Enter a name, valid email and role.");
   if ((await all("users")).some((u) => u.email === email))
