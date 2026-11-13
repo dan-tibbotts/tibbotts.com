@@ -1,6 +1,6 @@
 // Additive IndexedDB upgrades. Keep the database name and every existing record/ID.
 export const DATABASE_NAME = "sitelog-mockup-v1";
-export const DATABASE_VERSION = 2;
+export const DATABASE_VERSION = 8;
 export const STORES = [
   "meta",
   "users",
@@ -16,15 +16,37 @@ export const STORES = [
   "workSchedules",
   "scheduleRevisions",
   "auditEvents",
+  "contacts",
+  "catalogItems",
+  "supplierPrices",
+  "clientRates",
+  "commercialRevisions",
+  "termsTemplates",
+  "quotes",
+  "quoteIssues",
+  "quoteDrafts",
+  "materialRequirements",
+  "jobInspections",
+  "jobAuthorisations",
+  "activities",
+  "purchaseOrders",
+  "materialReceipts",
+  "inspectionEvents",
+  "decisions",
+  "documents",
+  "documentVersions",
+  "variations",
+  "variationSnapshots",
+  "jobCostRates",
+  "costCommitments",
 ];
 export function upgradeDatabase(db, tx, oldVersion) {
   for (const name of STORES)
     if (!db.objectStoreNames.contains(name))
       db.createObjectStore(name, { keyPath: "id" });
-  const index = (store, name, key) => {
+  const index = (store, name, key, unique = false) => {
     const s = tx.objectStore(store);
-    if (!s.indexNames.contains(name))
-      s.createIndex(name, key, { unique: false });
+    if (!s.indexNames.contains(name)) s.createIndex(name, key, { unique });
   };
   index("timesheets", "byWorkerDate", ["workerId", "date"]);
   index("timesheets", "byJobDate", ["jobId", "date"]);
@@ -33,6 +55,87 @@ export function upgradeDatabase(db, tx, oldVersion) {
   index("drafts", "byUser", "userId");
   index("workSchedules", "byWorkerEffective", ["workerId", "effectiveFrom"]);
   index("scheduleRevisions", "bySchedule", "scheduleId");
+  index("supplierPrices", "byItemSupplier", ["itemId", "supplierId"]);
+  index("clientRates", "byCustomerItem", ["customerId", "itemId"]);
+  index("commercialRevisions", "byEntity", ["entityType", "entityId"]);
+  index("quoteDrafts", "byUser", "userId");
+  index("quoteIssues", "byQuote", "quoteId");
+  index("jobs", "bySourceQuote", "sourceQuoteId", true);
+  index("materialRequirements", "bySource", "sourceKey", true);
+  index("jobInspections", "bySource", "sourceKey", true);
+  index("activities", "byJobStart", ["jobId", "startAt"]);
+  index("materialReceipts", "byRequest", "requestId");
+  index("inspectionEvents", "byInspection", "inspectionId");
+  index(
+    "documentVersions",
+    "variations",
+    "variationSnapshots",
+    "jobCostRates",
+    "costCommitments",
+    "byDocumentVersion",
+    ["documentId", "version"],
+    true,
+  );
+  index("documents", "byJob", "jobId");
+  index("variations", "byJob", "jobId");
+  index("variationSnapshots", "byVariation", "variationId");
+  index("jobCostRates", "byJobEffective", ["jobId", "effectiveFrom"]);
+  if (oldVersion < 8)
+    tx.objectStore("meta").put({
+      id: "migration:8",
+      value: {
+        version: 8,
+        policy: "additive variations and explicit job cost bases",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
+  if (oldVersion < 7)
+    tx.objectStore("meta").put({
+      id: "migration:7",
+      value: {
+        version: 7,
+        policy:
+          "additive project records and immutable local document versions",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
+  if (oldVersion < 6)
+    tx.objectStore("meta").put({
+      id: "migration:6",
+      value: {
+        version: 6,
+        policy: "additive planning, orders and immutable receipt events",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
+  if (oldVersion < 5)
+    tx.objectStore("meta").put({
+      id: "migration:5",
+      value: {
+        version: 5,
+        policy:
+          "additive authorisations and source links; legacy acceptance requires review; no old records changed",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
+  if (oldVersion < 4)
+    tx.objectStore("meta").put({
+      id: "migration:4",
+      value: {
+        version: 4,
+        policy: "additive quote and terms stores; no existing values changed",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
+  if (oldVersion < 3)
+    tx.objectStore("meta").put({
+      id: "migration:3",
+      value: {
+        version: 3,
+        policy: "additive commercial stores only; no original values changed",
+        upgradedAt: new Date().toISOString(),
+      },
+    });
   if (oldVersion < 2) {
     // A personal start/finish setting never specified working days/effective date.
     // Preserve it verbatim for review; never fabricate an active weekly schedule.

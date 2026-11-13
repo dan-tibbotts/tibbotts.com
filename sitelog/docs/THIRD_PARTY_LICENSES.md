@@ -11,3 +11,5 @@ Prettier 3.6.2 (MIT, no package dependencies) was used as an optional developmen
 Chrome is an optional separately installed test/browser application and is not distributed by this project. The browser smoke suite uses its standard DevTools protocol through Node's WebSocket API.
 
 Future additions must review direct/transitive licences, vulnerabilities and asset provenance; allowed defaults are MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause and ISC. Unknown, restricted and copyleft licences need the specification's explicit review/approval process. Managed hosting/email agreements are separate from software licences.
+
+The v3 expansion adds no direct/transitive packages, fonts, icon libraries, spreadsheet/PDF libraries or external assets. Print/PDF-compatible views use native HTML/browser printing; archives, SHA-256, IndexedDB, decimal arithmetic and tests use browser/Node APIs. The same already documented optional cached Prettier 3.6.2 (MIT) was used for formatting and remains outside the application dependency graph. XLSX is a reviewed staged follow-up, not a bundled unknown-licence implementation.

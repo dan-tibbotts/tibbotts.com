@@ -1,3 +1,4 @@
+import { workerDocumentAllowed } from "./document-domain.mjs";
 import { canAccessJob } from "./domain.mjs";
 export function transactionUser(records) {
   const session = records.meta.find((m) => m.id === "session")?.value;
@@ -59,6 +60,7 @@ const JOB_FIELDS = [
   "category",
   "color",
   "workerIds",
+  "coverMediaId",
 ];
 const TIME_FIELDS = [
   "id",
@@ -90,7 +92,26 @@ export function projectWorkspace(data, user) {
       ...Object.fromEntries(Object.keys(data).map((k) => [k, []])),
       meta: [],
     };
-  if (user.role === "office_admin") return data;
+  if (user.role === "office_admin")
+    return {
+      ...data,
+      operations: data.operations.filter((o) => o.userId === user.id),
+      drafts: data.drafts.filter((d) => d.userId === user.id),
+      quoteDrafts: (data.quoteDrafts || []).filter((d) => d.userId === user.id),
+      meta: data.meta.filter(
+        (m) =>
+          [
+            "seeded",
+            "session",
+            "uploadPolicy",
+            "network",
+            "paused",
+            "companyProfile",
+          ].includes(m.id) ||
+          m.id === `currentJob:${user.id}` ||
+          m.id === `defaults:${user.id}`,
+      ),
+    };
   const jobs = data.jobs.filter((j) => canAccessJob(user, j)),
     jobIds = new Set(jobs.map((j) => j.id));
   const timesheets = data.timesheets
@@ -133,6 +154,7 @@ export function projectWorkspace(data, user) {
           "id",
           "jobId",
           "uploaderId",
+          "repeatFromMediaId",
           "date",
           "kind",
           "name",
@@ -171,6 +193,94 @@ export function projectWorkspace(data, user) {
         after: timeDTO(r.after),
       })),
     workSchedules: data.workSchedules.filter((s) => s.workerId === user.id),
+    upcomingActivities: (data.activities || [])
+      .filter(
+        (a) =>
+          jobIds.has(a.jobId) &&
+          a.sharedWithWorkers &&
+          (a.workerIds.includes(user.id) || !a.workerIds.length),
+      )
+      .map((a) =>
+        pick(a, [
+          "id",
+          "jobId",
+          "title",
+          "startDate",
+          "endDate",
+          "start",
+          "end",
+          "startAt",
+          "endAt",
+          "timeZone",
+          "status",
+          "notes",
+          "needsReview",
+        ]),
+      ),
+    deliveries: (data.purchaseOrders || [])
+      .filter((o) => jobIds.has(o.jobId) && o.status !== "cancelled")
+      .map((o) => ({
+        id: o.id,
+        jobId: o.jobId,
+        status: o.status,
+        expectedDelivery: o.expectedDelivery,
+        items: o.lines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          uom: l.uom,
+        })),
+      })),
+    upcomingInspections: (data.jobInspections || [])
+      .filter((i) => jobIds.has(i.jobId) && i.sharedWithWorkers)
+      .map((i) =>
+        pick(i, [
+          "id",
+          "jobId",
+          "description",
+          "type",
+          "authority",
+          "status",
+          "expectedDate",
+          "appointmentDate",
+          "appointmentTime",
+          "workerNotes",
+          "followUpId",
+        ]),
+      ),
+    sharedDocuments: (data.documents || [])
+      .filter((d) => jobIds.has(d.jobId) && workerDocumentAllowed(d))
+      .map((d) => {
+        const v = (data.documentVersions || []).find(
+          (v) => v.id === d.currentVersionId,
+        );
+        return {
+          ...pick(d, [
+            "id",
+            "jobId",
+            "title",
+            "category",
+            "currentVersionId",
+            "version",
+          ]),
+          ...(v
+            ? pick(v, ["filename", "mime", "size", "checksum", "createdAt"])
+            : {}),
+        };
+      }),
+    sharedDecisions: (data.decisions || [])
+      .filter((d) => jobIds.has(d.jobId) && d.sharedWithWorkers)
+      .map((d) =>
+        pick(d, [
+          "id",
+          "jobId",
+          "title",
+          "summary",
+          "decisionDate",
+          "responsibleParty",
+          "action",
+          "targetDate",
+        ]),
+      ),
     scheduleRevisions: [],
     auditEvents: [],
     invites: [],

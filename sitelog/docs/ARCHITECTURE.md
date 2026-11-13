@@ -51,3 +51,13 @@ The existing UI, mock identity, IndexedDB, media and single sync engine are reta
 `permissions.mjs` provides explicit worker projections and entry/lock checks. `schedule-service.mjs` and `timesheet-service.mjs` use `store.readwrite()` to perform validation and mutations within one live IndexedDB transaction. No asynchronous network/crypto gaps or app-level Web Locks are required for atomic time acceptance. Existing notes/media/outbox code is reused.
 
 These remain local simulation boundaries. A real server/auth/database implementation is still necessary for production enforcement. The v2 service-worker cache includes the new public modules and retains `/sitelog/` scope; private records remain outside CacheStorage.
+
+## v3 feature modules and release boundary
+
+The existing application is extended, not rebuilt. `app.mjs` coordinates shared navigation and existing worker capture. New cohesive modules handle release/build identity; exact decimal money and price-book rules; transactional commercial changes; quote/terms lifecycle and allowlisted exports; acceptance/direct authorisation; planning/purchasing/immutable receipts; inspections/decisions; immutable private local documents; variations and job costing; and local archive validation/restore rehearsal. Feature services recheck the current office identity, revision and state within the write transaction. No asynchronous file hashing/network gaps occur inside those transactions.
+
+`permissions.mjs` returns explicit worker projections and filters other identities’ unsent drafts/queues from normal office workspace reads. The privileged local backup action deliberately archives this browser’s synthetic workspace, including retained drafts and files, but excludes sessions/OTP state. Archive import only adds missing IDs. All of these are mock boundaries, not trusted server enforcement.
+
+`build.mjs` injects package/Git/time/environment once; `release.mjs` and the generated SW keep installed code and metadata bound to one immutable artifact. Cross-tab update preparation checks open forms/durable writes and quiesces the existing single worker sync engine. Office commercial edits remain central/mock online commands; local quote editor drafts can persist offline. No second competing worker outbox is added.
+
+Additive schema 8 retains the database name and original records. The native opener shares concurrent connection attempts and lets an older tab reopen a newer database only if all stores it requires remain present; it never downgrades/deletes data or runs an older migration against a newer schema. Unknown/incompatible clients fail safely and need a compatible artifact.

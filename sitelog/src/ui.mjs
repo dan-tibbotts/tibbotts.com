@@ -52,9 +52,9 @@ const paths = {
   logout: '<path d="M9 3H3v18h6m6-15 6 6-6 6M9 12h12"/>',
 };
 export const icon = (name, cls = "") =>
-  `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.note}</svg>`;
+  `<svg class="icon ${escape(cls)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.note}</svg>`;
 export const button = (label, action, cls = "button", iconName = "") =>
-  `<button type="button" class="${cls}" data-action="${action}">${iconName ? icon(iconName) : ""}${label}</button>`;
+  `<button type="button" class="${escape(cls)}" data-action="${escape(action)}">${iconName ? icon(iconName) : ""}${label}</button>`;
 export const empty = (title, text, iconName = "note") =>
   `<div class="empty-state">${icon(iconName)}<h3>${title}</h3><p>${text}</p></div>`;
 export function statusBadge(state) {
@@ -66,7 +66,7 @@ export function statusBadge(state) {
     conflict: "Review changes",
     draft: "Draft",
   };
-  return `<span class="status-badge ${state}"><i></i>${labels[state] || escape(state)}</span>`;
+  return `<span class="status-badge ${escape(state)}"><i></i>${labels[state] || escape(state)}</span>`;
 }
 export function siteSketch(color = "sage") {
   return `<svg class="site-sketch ${escape(color)}" viewBox="0 0 360 180" fill="none" aria-hidden="true"><path class="land" d="M-30 147 144 65l242 86-135 80z"/><g stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="m83 99 93-46 101 43-93 50z"/><path d="M83 99v36l101 45v-34m0 34 93-48V96M176 53v37m-93 45 93-45 101 42"/><path d="m66 98 40-63 74-35 32 39m-106-4 70 18 36-14 77 53M106 35v51m106-47v27"/><path d="m112 126 22 10v28m-22-38v28m91-17 25-13v25l-25 13zm35-18 24-12v25l-24 12z"/><path opacity=".3" d="m20 147 60 27m207-10 50-24M38 132l20 9M303 84l26 10"/></g></svg>`;

@@ -6,7 +6,9 @@ Use `npm --prefix sitelog start` from the repository root. This is a loopback-on
 
 There are no secrets, production routes, Cloudflare bindings, external databases, email integrations or automatic deployments. No change to GitHub Pages settings, nameservers, DNS records, MX/SPF/DKIM or the existing homepage is needed to try the mockup.
 
-Service-worker scope and manifest start/scope are `/sitelog/`. Static shell updates use network-first refresh, falling back to the explicit cached allowlist when offline. Only prior SiteLog cache versions are removed. Deploying a changed shell later should increment its cache version and review update handling for open tabs.
+Service-worker scope and manifest start/scope remain `/sitelog/`. `npm start` first creates a complete immutable build under `.build/releases/<buildId>/`; `.build/active.json` switches only after artifact completion. Source modules/CSS live at build-specific immutable URLs. The stable service worker/root HTML are revalidated, and API/auth responses are never cached. Version/details identify the installed artifact, including offline. See `VERSIONING_AND_RELEASES.md` for metadata inputs, safe waiting-worker update and static rollback. Do not replace this with a static cache-name bump or network-first mutable module loading.
+
+To preview another build locally, run `npm --prefix sitelog run build`, then Check for updates / Reload after finishing open forms. Back up local data first when experimenting with database/schema changes. This creates local files only. No Cloudflare infrastructure/configuration is generated or applied.
 
 ## Future production work — requires a separate implementation/review
 

@@ -1,3 +1,4 @@
+import { saveAuthorisedJob } from "./job-authorisation.mjs";
 import { acceptTimeOperation } from "./timesheet-service.mjs";
 import { projectWorkspace, jobDTO } from "./permissions.mjs";
 export { saveWorkSchedule } from "./schedule-service.mjs";
@@ -27,45 +28,7 @@ export async function authoriseJob(id, user) {
 }
 export async function saveJob(job) {
   await admin();
-  if (!job.name.trim() || !job.address.trim())
-    throw new Error("Add a job name and readable site location.");
-  if (
-    job.name.length > 120 ||
-    job.address.length > 300 ||
-    job.instructions.length > 4000
-  )
-    throw new Error("The job details are too long.");
-  if ((job.lat === null) !== (job.lng === null))
-    throw new Error("Enter both latitude and longitude, or leave both empty.");
-  if (
-    job.lat !== null &&
-    (!Number.isFinite(job.lat) ||
-      Math.abs(job.lat) > 90 ||
-      !Number.isFinite(job.lng) ||
-      Math.abs(job.lng) > 180)
-  )
-    throw new Error("Enter valid WGS84 coordinates.");
-  if (
-    !Number.isFinite(job.estimateMinutes) ||
-    job.estimateMinutes < 0 ||
-    !Number.isFinite(job.radius) ||
-    job.radius < 1
-  )
-    throw new Error(
-      "Estimated hours and radius must be valid positive values.",
-    );
-  const allowed = new Set(
-    (await all("users"))
-      .filter((u) => u.role === "worker" && u.active)
-      .map((u) => u.id),
-  );
-  if (job.workerIds.some((id) => !allowed.has(id)))
-    throw new Error("Only active workers can be assigned.");
-  await put("jobs", {
-    ...job,
-    id: job.id || uuid(),
-    updatedAt: new Date().toISOString(),
-  });
+  return saveAuthorisedJob(job);
 }
 export async function inviteUser({ email, displayName, role }) {
   const user = await admin();
@@ -131,6 +94,15 @@ export async function applyOperation(operation) {
       throw new Error("Add a note of up to 4,000 characters.");
   } else if (operation.kind === "media") {
     names.push("media");
+    if (value.repeatFromMediaId) {
+      const reference = await get("media", value.repeatFromMediaId);
+      if (
+        !reference ||
+        reference.kind !== "photo" ||
+        reference.jobId !== value.jobId
+      )
+        throw new Error("Repeat photo reference is unavailable on this job.");
+    }
     if (value.uploaderId !== user.id || !(await get("blobs", value.id)))
       throw new Error(
         "The local media file is unavailable. Please add it again.",

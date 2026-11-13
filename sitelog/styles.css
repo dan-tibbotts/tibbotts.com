@@ -2426,3 +2426,252 @@ dialog::backdrop {
     min-height: 44px;
   }
 }
+/* Release identity is part of the compact shell, including unauthenticated/error screens. */
+.version-label {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 1px solid #dbe2ce;
+  border-radius: 6px;
+  background: #eef2e7;
+  color: #455b3b;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.boot-header,
+.login-version-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+.login-version-header {
+  position: relative;
+  z-index: 2;
+}
+.login-page {
+  min-height: calc(100dvh - 72px);
+}
+.build-id {
+  overflow-wrap: anywhere;
+}
+.update-banner {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #9bac82;
+  border-radius: 10px;
+  padding: 10px 15px;
+  box-shadow: 0 6px 30px #243e3930;
+  max-width: calc(100% - 24px);
+  font-size: 12px;
+}
+.update-banner span {
+  white-space: nowrap;
+}
+.update-banner .button {
+  min-height: 38px;
+}
+@media (max-width: 700px) {
+  .topbar {
+    gap: 6px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .topbar .mobile-brand {
+    font-size: 19px;
+    gap: 6px;
+  }
+  .topbar .brand-mark {
+    width: 29px;
+    height: 31px;
+  }
+  .topbar .version-label {
+    font-size: 10px;
+    padding: 4px 5px;
+    min-height: 40px;
+  }
+  .top-actions {
+    gap: 3px;
+  }
+  .topbar .network-label {
+    display: none;
+  }
+  .topbar .queue-button {
+    font-size: 10px;
+    padding: 7px 6px;
+    gap: 4px;
+  }
+  .update-banner {
+    bottom: 85px;
+    gap: 7px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .update-banner .text-button {
+    font-size: 10px;
+  }
+}
+.record-snapshot {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  background: #f5f7f0;
+  padding: 12px;
+  border-radius: 7px;
+  max-height: 240px;
+  overflow: auto;
+}
+.tabs {
+  scrollbar-width: thin;
+}
+.office-commercial .button {
+  min-height: 44px;
+}
+
+/* Office quoting retains the shared compact PWA header. */
+.quote-line {
+  border: 1px solid var(--line, #dce5df);
+  border-radius: 12px;
+  margin: 18px 0;
+  padding: 16px;
+  min-width: 0;
+}
+.quote-line legend {
+  font-weight: 650;
+  padding: 0 8px;
+}
+.quote-sticky-totals {
+  position: sticky;
+  bottom: 0;
+  background: #183e35;
+  color: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  font-weight: 650;
+  z-index: 2;
+  margin: 16px 0;
+  box-shadow: 0 -4px 16px #ffffffb3;
+}
+.clause-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.clause-row .field {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.clause-row .icon-button {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+.quote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+[data-quote-panel][hidden] {
+  display: none !important;
+}
+#quote-editor .tabs {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 3;
+  padding: 8px 0;
+}
+@media (max-width: 600px) {
+  .quote-line {
+    padding: 12px;
+  }
+  .quote-sticky-totals {
+    font-size: 13px;
+  }
+  .quote-actions .button {
+    flex: 1 1 140px;
+  }
+}
+.planning-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+.planning-day-column {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid #dce5df;
+  border-radius: 10px;
+  padding: 8px;
+}
+.planning-week .schedule-person {
+  padding: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.planning-week .section-title {
+  display: block;
+}
+.planning-week h3 {
+  font-size: 14px;
+}
+@media (max-width: 1100px) {
+  .planning-week {
+    display: block;
+  }
+  .planning-day-column {
+    margin-bottom: 12px;
+  }
+  .planning-week .schedule-person {
+    font-size: 14px;
+  }
+  .planning-week .section-title {
+    display: flex;
+  }
+}
+.site-visual,
+.site-detail-visual {
+  position: relative;
+  overflow: hidden;
+}
+[data-job-photo] {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+}
+[data-job-photo] + .site-sketch[hidden] {
+  display: none;
+}
+.site-visual .tag {
+  z-index: 1;
+  background: #183e35e8;
+  color: #fff;
+}
+/* Keep file checksums, source references and long names readable on phones. */
+.dialog-content {
+  overflow-wrap: anywhere;
+}
+.queue-item > div {
+  min-width: 0;
+}
+.detail-definition dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

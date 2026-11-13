@@ -93,3 +93,11 @@ Never reset/delete the only browser database as a recovery shortcut. Keep the or
 - A JSON-only restore must decode the `__blob` data URLs back into Blobs and put each row into its named, version-compatible store in an isolated database. Validate the backup format, IDs, store counts and checksums before replacing any valued profile. There is deliberately no automatic destructive import/downgrade button.
 
 Current tests construct an actual v1 database with records, assignments, revisions, invitation, pending operation, unfinished draft, original media and thumbnail bytes, upgrade it through the real migration, and compare every original value and binary payload. Real-profile backup/restore and actual-phone storage/quota scenarios remain manual acceptance work.
+
+## v3 expansion additive local upgrades
+
+Schema 3 adds contacts/catalogue/pricing/history; 4 terms/quotes/issues/editor drafts; 5 authorisation, accepted-job source constraints and material/inspection origins; 6 planning/orders/receipt events; 7 inspection history, decisions and private immutable document versions. Every upgrade retains `sitelog-mockup-v1` and original records, IDs, outbox entries and media/draft bytes. Migration markers document additive changes; no commercial approval, rates, legal wording or historical acceptance is backfilled. Existing jobs without acceptance keep access and show an office review warning.
+
+Do not downgrade IndexedDB versions or clear site data to roll back frontend files. Retain additive stores and immutable artifacts. Future real-service migrations need separate staging/backup/restore review; none is deployed by these local upgrades.
+
+Schema 8 adds variations/submission snapshots, effective job labour-cost bases and manual subcontractor cost records. Older tabs share an opening promise and may reopen newer additive schemas without attempting a downgrade only if all required stores remain present; incompatible schemas fail with data retained. Automated Chrome tests verify both cases. The local archive tool can rehearse full record/blob restoration in a new disposable database, or append missing IDs to the active workspace without overwriting existing records. Production migration/restore remains separate.

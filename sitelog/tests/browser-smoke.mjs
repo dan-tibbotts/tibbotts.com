@@ -67,8 +67,8 @@ check(
   "development server blocks dotfiles",
 );
 check(
-  (await fetch(origin + "/sitelog/api/about")).status === 404,
-  "no unintended mock backend endpoint",
+  (await fetch(origin + "/sitelog/api/about")).status === 200,
+  "safe local API about endpoint is available",
 );
 // Fresh fixture, using only the local prototype database.
 await evaluate(
@@ -275,6 +275,15 @@ await action("new-job");
 await waitFor("document.querySelector('[name=name]')");
 await fill("[name=name]", "Browser Test Site");
 await fill("[name=address]", "Lot 9, fictional subdivision");
+for (const name of [
+  "authCustomer",
+  "authScope",
+  "authBasis",
+  "authTerms",
+  "authPerson",
+  "authReference",
+])
+  await fill(`[name=${name}]`, "Synthetic direct-work authorisation");
 await evaluate(
   "document.querySelector('[name=workerIds][value=alex]').checked=true",
 );

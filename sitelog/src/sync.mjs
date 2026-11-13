@@ -9,6 +9,7 @@ export class SyncEngine {
     this.override = false;
     this.simulation = "auto";
     this.paused = false;
+    this.updating = false;
   }
   network() {
     if (!navigator.onLine) return "offline";
@@ -36,8 +37,22 @@ export class SyncEngine {
     await this.onChange();
     if (!value) await this.run();
   }
+  async quiesce() {
+    this.updating = true;
+    const started = Date.now();
+    while (this.busy) {
+      if (Date.now() - started > 5000)
+        throw new Error(
+          "A save is still finishing. Try the update again in a moment.",
+        );
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+  }
+  resumeAfterUpdate() {
+    this.updating = false;
+  }
   async run({ override = false, retry = false } = {}) {
-    if (this.busy) return;
+    if (this.busy || this.updating) return;
     this.busy = true;
     this.override = override;
     const work = async () => {
@@ -55,7 +70,7 @@ export class SyncEngine {
         )
         .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
       for (const op of ops) {
-        if (this.paused || this.network() === "offline") break;
+        if (this.paused || this.updating || this.network() === "offline") break;
         if (
           op.kind === "media" &&
           !mediaAllowed(policy, this.network(), override)
@@ -70,7 +85,7 @@ export class SyncEngine {
         await new Promise((resolve) =>
           setTimeout(resolve, op.kind === "media" ? 650 : 200),
         );
-        if (this.paused || this.network() === "offline") {
+        if (this.paused || this.updating || this.network() === "offline") {
           await put("operations", { ...op, state: "queued", progress: 0 });
           break;
         }

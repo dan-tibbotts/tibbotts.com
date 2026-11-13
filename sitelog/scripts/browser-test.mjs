@@ -29,6 +29,7 @@ const env = {
   SITELOG_PORT: "4174",
   SITELOG_TEST_ORIGIN: "http://localhost:4174",
   SITELOG_DEBUG_PORT: "9223",
+  SITELOG_BUILD_DIR: join(profile, "artifacts"),
 };
 const server = spawn(
   process.execPath,
@@ -63,7 +64,18 @@ try {
     ready("http://localhost:9223/json/list"),
     ready("http://localhost:4174/sitelog/"),
   ]);
-  for (const suite of ["browser-smoke.mjs", "stage1-browser.mjs"]) {
+  for (const suite of process.env.SITELOG_TEST_SUITES?.split(",") || [
+    "browser-smoke.mjs",
+    "stage1-browser.mjs",
+    "release-browser.mjs",
+    "commercial-browser.mjs",
+    "quote-browser.mjs",
+    "acceptance-browser.mjs",
+    "planning-browser.mjs",
+    "project-record-browser.mjs",
+    "costing-browser.mjs",
+    "hardening-browser.mjs",
+  ]) {
     const test = spawn(
       process.execPath,
       [fileURLToPath(new URL("../tests/" + suite, import.meta.url))],

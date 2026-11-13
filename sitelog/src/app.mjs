@@ -1,3 +1,25 @@
+import { backupView, backupAction } from "./backup-ui.mjs";
+import { waitForBackupWork } from "./backup-service.mjs";
+import { financeView, financeAction } from "./finance-ui.mjs";
+import {
+  jobPhotoMarkup,
+  hydrateJobPhotos,
+  setJobCover,
+} from "./job-photos.mjs";
+import {
+  projectView,
+  projectAction,
+  workerJobRecords,
+  downloadProjectDocument,
+} from "./project-record-ui.mjs";
+import {
+  planningView,
+  planningAction,
+  workerUpcoming,
+} from "./planning-ui.mjs";
+import { quoteOfficeView, quoteAction, flushQuoteDraft } from "./quote-ui.mjs";
+import { commercialView, commercialAction } from "./commercial-ui.mjs";
+import { buildInfo, versionLabel, ReleaseManager } from "./release.mjs";
 import { openTimeForm } from "./time-form.mjs";
 import { openScheduleForm } from "./schedule-form.mjs";
 import { WEEKDAYS } from "./work-schedules.mjs";
@@ -45,6 +67,14 @@ const root = document.querySelector("#app"),
 const state = {
   page: "today",
   officeTab: "overview",
+  commercialQuery: "",
+  quoteQuery: "",
+  projectQuery: "",
+  planningDate: workDate(),
+  planningMode: "week",
+  materialStatus: "outstanding",
+  contactRole: "all",
+  contactApproval: "all",
   date: workDate(),
   query: "",
   jobFilter: "all",
@@ -62,8 +92,39 @@ let toastTimer,
   refreshing = Promise.resolve(),
   modalRefresh = null,
   draftWrites = Promise.resolve(),
+  draftFailure = null,
   channel;
 const sync = new SyncEngine(() => refresh());
+const releases = new ReleaseManager({
+  notify: (message) => toast(message),
+  prepare: async () => {
+    if (dialog.open && dialog.querySelector("form"))
+      throw new Error(
+        "Finish and close the current form before updating. Your saved drafts stay on this device.",
+      );
+    if (document.querySelector("input[type=file]")?.files?.length)
+      throw new Error("Save selected media before updating.");
+    await draftWrites;
+    if (draftFailure)
+      throw new Error(
+        "A draft could not be saved. Resolve the storage problem before updating.",
+      );
+    await flushQuoteDraft();
+    await waitForBackupWork();
+    await sync.quiesce();
+    for (const op of await store.all("operations"))
+      if (
+        op.kind === "media" &&
+        op.state !== "synced" &&
+        !(await store.get("blobs", op.data.id))
+      )
+        throw new Error(
+          "A pending media file needs attention before updating.",
+        );
+  },
+  resume: () => sync.resumeAfterUpdate(),
+});
+void releases.init();
 const names = {
   today: "Today",
   records: "Daily records",
@@ -136,6 +197,10 @@ function refresh() {
       if (state.user)
         state.currentJobId = metaValue(`currentJob:${state.user.id}`, null);
       render();
+      if (state.user)
+        await hydrateJobPhotos(root, state.data.jobs, state.data.media, (url) =>
+          state.galleryUrls.push(url),
+        );
       if (modalRefresh) await modalRefresh();
     });
   return refreshing;
@@ -160,7 +225,7 @@ function render() {
         `<button class="nav-item ${state.page === id ? "active" : ""}" data-action="nav:${id}" ${state.page === id ? 'aria-current="page"' : ""}>${icon(ic)}<span>${label}</span></button>`,
     )
     .join("");
-  root.innerHTML = `<aside class="sidebar"><a class="brand" href="/sitelog/" aria-label="SiteLog home"><span class="brand-mark">s<span>l</span></span>SiteLog<em>DEMO</em></a><p class="workspace-label">Your workspace</p><nav class="navigation" aria-label="Main navigation">${links}${state.user.role === "office_admin" ? `<div class="nav-divider"></div><button class="nav-item ${state.page === "office" ? "active" : ""}" data-action="nav:office">${icon("briefcase")}<span>Office admin</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="local-card"><div class="mini-label">${icon("leaf")} A little less paperwork.</div><p>More time on site.<br>Everything in its place.</p>${button("About this mockup", "about", "text-button", "arrow")}</div><div class="sidebar-user"><span class="avatar">${e(state.user.initials)}</span><div><strong>${e(state.user.displayName)}</strong><small>${state.user.role === "office_admin" ? "Office administrator" : "Site team"}</small></div><button class="icon-button" data-action="settings" aria-label="Account and settings">${icon("settings")}</button></div></div></aside><div class="main-shell"><header class="topbar"><a class="brand mobile-brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a><div class="breadcrumb">Workspace ${icon("chevron")}<strong>${names[state.page]}</strong></div><div class="top-actions"><span class="network-label ${offline ? "offline" : ""}" title="${offline ? "Offline mode" : "Local demo connected"}"><i></i>${offline ? "Offline mode" : "Local workspace"}</span><button class="queue-button" data-action="queue" aria-label="Upload queue, ${mediaCount} media files pending. ${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile data only" : "Any network"}">${icon("upload")}<span>${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile only" : "Any network"}</span><b>${mediaCount}</b></button><button class="icon-button" data-action="settings" aria-label="Settings">${icon("settings")}</button></div></header><div class="demo-strip"><span>LOCAL CONCEPT · Fictional jobs · Data stays in this browser</span><span class="desktop-only">&nbsp;·&nbsp;</span><button data-action="settings">Switch demo role</button></div><main class="content" id="main-content">${state.storageWarning ? '<div class="notice warning">Device storage is almost full. Protect unsynced work and download important files before clearing any data.</div>' : ""}${pageContent()}<footer class="page-footer"><span>SiteLog <span class="desktop-only">— Simple site records, less paperwork.</span></span><span>${count ? `${count} record${count === 1 ? "" : "s"} saved locally · ` : ""}Local mockup · v0.1</span></footer></main></div><nav class="bottom-nav" aria-label="Mobile navigation">${navItems
+  root.innerHTML = `<aside class="sidebar"><a class="brand" href="/sitelog/" aria-label="SiteLog home"><span class="brand-mark">s<span>l</span></span>SiteLog<em>DEMO</em></a><p class="workspace-label">Your workspace</p><nav class="navigation" aria-label="Main navigation">${links}${state.user.role === "office_admin" ? `<div class="nav-divider"></div><button class="nav-item ${state.page === "office" ? "active" : ""}" data-action="nav:office">${icon("briefcase")}<span>Office admin</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="local-card"><div class="mini-label">${icon("leaf")} A little less paperwork.</div><p>More time on site.<br>Everything in its place.</p>${button("About this mockup", "about", "text-button", "arrow")}</div><div class="sidebar-user"><span class="avatar">${e(state.user.initials)}</span><div><strong>${e(state.user.displayName)}</strong><small>${state.user.role === "office_admin" ? "Office administrator" : "Site team"}</small></div><button class="icon-button" data-action="settings" aria-label="Account and settings">${icon("settings")}</button></div></div></aside><div class="main-shell"><header class="topbar"><a class="brand mobile-brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a>${versionLabel()}<div class="breadcrumb">Workspace ${icon("chevron")}<strong>${names[state.page]}</strong></div><div class="top-actions"><span class="network-label ${offline ? "offline" : ""}" title="${offline ? "Offline mode" : "Local demo connected"}"><i></i>${offline ? "Offline mode" : "Local workspace"}</span><button class="queue-button" data-action="queue" aria-label="Upload queue, ${mediaCount} media files pending. ${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile data only" : "Any network"}">${icon("upload")}<span>${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile only" : "Any network"}</span><b>${mediaCount}</b></button><button class="icon-button" data-action="settings" aria-label="Settings">${icon("settings")}</button></div></header><div class="demo-strip"><span>LOCAL CONCEPT · Fictional jobs · Data stays in this browser</span><span class="desktop-only">&nbsp;·&nbsp;</span><button data-action="settings">Switch demo role</button></div><main class="content" id="main-content">${state.storageWarning ? '<div class="notice warning">Device storage is almost full. Protect unsynced work and download important files before clearing any data.</div>' : ""}${pageContent()}<footer class="page-footer"><span>SiteLog <span class="desktop-only">— Simple site records, less paperwork.</span></span><span>${count ? `${count} record${count === 1 ? "" : "s"} saved locally · ` : ""}Local mockup · v${e(buildInfo.frontendVersion)}</span></footer></main></div><nav class="bottom-nav" aria-label="Mobile navigation">${navItems
     .slice(0, 3)
     .map(
       ([id, ic, label]) =>
@@ -231,7 +296,7 @@ function todayPage() {
     )
     .join(
       "",
-    )}</div><div class="dashboard-columns"><section class="panel"><div class="panel-header"><div><h2>${state.date === today ? "Today’s records" : prettyDate(state.date, { weekday: "long" })}<span class="record-count">${items.length}</span></h2><p class="sub">The small details, all in one place.</p></div><label><span class="sr-only">Record date</span><input class="date-control" type="date" data-filter="date" value="${state.date}"></label></div><div class="record-list">${items.length ? items.map(recordRow).join("") : empty("A fresh page for your day", "Record your time, add a note or capture a few photos.", "sun")}</div><div class="panel-footer"><span>${icon("check")} Saved in your local demo workspace</span>${button("All records", "nav:records", "text-button", "arrow")}</div></section><aside class="right-stack"><section class="panel summary-panel"><div class="section-title"><h2>Your day, at a glance</h2>${icon("sun", "sun-icon")}</div><div class="hours-display">${Math.floor(minutes / 60)}<span>h</span> ${minutes % 60 ? `${minutes % 60}<span>m</span>` : ""}</div><p class="summary-subtitle">Time recorded ${state.date === today ? "today" : prettyDate(state.date)}</p><div class="mini-stats"><div><strong>${new Set(times.map((t) => t.jobId)).size}</strong><small>Jobs worked</small></div><div><strong>${media.length}</strong><small>Photos & videos</small></div></div><div class="week-chart" aria-label="Time recorded over the last seven days">${chart}</div></section>${job ? `<section class="panel site-card"><div class="site-visual">${siteSketch(job.color)}<span class="tag">${e(job.category)}</span></div><div class="site-content"><h3>${e(job.name)}</h3><p>${e(job.instructions).slice(0, 130)}${job.instructions.length > 130 ? "…" : ""}</p><span class="site-stage"><i class="status-dot"></i>${e(job.stage)}</span>${button("View job details", `job:${job.id}`, "text-button", "arrow")}</div></section>` : ""}</aside></div><div class="reassurance">${icon("leaf")}Record the work. Get on with your day.</div>`;
+    )}</div><div class="dashboard-columns"><section class="panel"><div class="panel-header"><div><h2>${state.date === today ? "Today’s records" : prettyDate(state.date, { weekday: "long" })}<span class="record-count">${items.length}</span></h2><p class="sub">The small details, all in one place.</p></div><label><span class="sr-only">Record date</span><input class="date-control" type="date" data-filter="date" value="${state.date}"></label></div><div class="record-list">${items.length ? items.map(recordRow).join("") : empty("A fresh page for your day", "Record your time, add a note or capture a few photos.", "sun")}</div><div class="panel-footer"><span>${icon("check")} Saved in your local demo workspace</span>${button("All records", "nav:records", "text-button", "arrow")}</div></section><aside class="right-stack"><section class="panel summary-panel"><div class="section-title"><h2>Your day, at a glance</h2>${icon("sun", "sun-icon")}</div><div class="hours-display">${Math.floor(minutes / 60)}<span>h</span> ${minutes % 60 ? `${minutes % 60}<span>m</span>` : ""}</div><p class="summary-subtitle">Time recorded ${state.date === today ? "today" : prettyDate(state.date)}</p><div class="mini-stats"><div><strong>${new Set(times.map((t) => t.jobId)).size}</strong><small>Jobs worked</small></div><div><strong>${media.length}</strong><small>Photos & videos</small></div></div><div class="week-chart" aria-label="Time recorded over the last seven days">${chart}</div></section>${job ? `<section class="panel site-card"><div class="site-visual">${jobPhotoMarkup(job)}<span class="tag">${e(job.category)}</span></div><div class="site-content"><h3>${e(job.name)}</h3><p>${e(job.instructions).slice(0, 130)}${job.instructions.length > 130 ? "…" : ""}</p><span class="site-stage"><i class="status-dot"></i>${e(job.stage)}</span>${button("View job details", `job:${job.id}`, "text-button", "arrow")}</div></section>` : ""}</aside></div>${state.user.role === "worker" ? workerUpcoming(state.data, state.user) : ""}<div class="reassurance">${icon("leaf")}Record the work. Get on with your day.</div>`;
 }
 function recordRow(record) {
   const time = record.kind === "time",
@@ -298,7 +363,7 @@ function jobsPage() {
         .toLowerCase()
         .includes(state.query.toLowerCase()),
   );
-  return `${heading("Know where you’re headed", state.user.role === "office_admin" ? "Job overview" : "My jobs", "Your sites, instructions and records. Ready when you are.", state.user.role === "office_admin" ? button("New job", "new-job", "button primary", "plus") : button("Find nearby", "nearby", "button", "pin"))}<div class="filter-bar"><label class="search-field">${icon("search")}<span class="sr-only">Search jobs by name or address</span><input id="job-search" type="search" placeholder="Search jobs or locations…" value="${e(state.query)}" data-filter="query"></label><label><span class="sr-only">Job status</span><select data-filter="job-status"><option value="active" ${state.jobStatus === "active" ? "selected" : ""}>Active jobs</option><option value="completed" ${state.jobStatus === "completed" ? "selected" : ""}>Completed jobs</option><option value="all" ${state.jobStatus === "all" ? "selected" : ""}>All jobs</option></select></label></div><div class="job-grid">${jobs.map((job) => `<article class="job-card"><div class="site-visual">${siteSketch(job.color)}</div><div class="job-card-body"><p class="job-card-code">${e(job.code)}</p><h2>${e(job.name)}</h2><p class="address">${icon("pin")} ${e(job.address)}</p><div class="job-stage"><span>${e(job.stage)}</span><span class="pill ${job.status}">${job.status === "completed" ? "Complete" : "In progress"}</span></div><div class="job-card-actions">${button("View job", `job:${job.id}`, "button", "arrow")}${state.user.role === "office_admin" ? button("Edit", `edit-job:${job.id}`, "text-button", "edit") : job.status === "active" ? button(state.currentJobId === job.id ? "Current job" : "Select job", `select-job:${job.id}`, "text-button", state.currentJobId === job.id ? "check" : "plus") : ""}</div></div></article>`).join("")}</div>${!jobs.length ? empty("No matching jobs", "Try another name or location, or ask the office for an assignment.", "job") : ""}`;
+  return `${heading("Know where you’re headed", state.user.role === "office_admin" ? "Job overview" : "My jobs", "Your sites, instructions and records. Ready when you are.", state.user.role === "office_admin" ? button("New job", "new-job", "button primary", "plus") : button("Find nearby", "nearby", "button", "pin"))}<div class="filter-bar"><label class="search-field">${icon("search")}<span class="sr-only">Search jobs by name or address</span><input id="job-search" type="search" placeholder="Search jobs or locations…" value="${e(state.query)}" data-filter="query"></label><label><span class="sr-only">Job status</span><select data-filter="job-status"><option value="active" ${state.jobStatus === "active" ? "selected" : ""}>Active jobs</option><option value="completed" ${state.jobStatus === "completed" ? "selected" : ""}>Completed jobs</option><option value="all" ${state.jobStatus === "all" ? "selected" : ""}>All jobs</option></select></label></div><div class="job-grid">${jobs.map((job) => `<article class="job-card"><div class="site-visual">${jobPhotoMarkup(job)}</div><div class="job-card-body"><p class="job-card-code">${e(job.code)}</p><h2>${e(job.name)}</h2><p class="address">${icon("pin")} ${e(job.address)}</p><div class="job-stage"><span>${e(job.stage)}</span><span class="pill ${e(job.status)}">${job.status === "completed" ? "Complete" : "In progress"}</span></div><div class="job-card-actions">${button("View job", `job:${job.id}`, "button", "arrow")}${state.user.role === "office_admin" ? button("Edit", `edit-job:${job.id}`, "text-button", "edit") : job.status === "active" ? button(state.currentJobId === job.id ? "Current job" : "Select job", `select-job:${job.id}`, "text-button", state.currentJobId === job.id ? "check" : "plus") : ""}</div></div></article>`).join("")}</div>${!jobs.length ? empty("No matching jobs", "Try another name or location, or ask the office for an assignment.", "job") : ""}`;
 }
 function mediaPage() {
   const media = allMedia()
@@ -317,6 +382,18 @@ function officePage() {
     ["timesheets", "Timesheets"],
     ["people", "People & invites"],
     ["hours", "Usual hours"],
+    ["contacts", "Contacts & approvals"],
+    ["pricebook", "Price book"],
+    ["quotes", "Quotes"],
+    ["variations", "Variations"],
+    ["costing", "Job costing"],
+    ["backup", "Backup & restore"],
+    ["planning", "Schedule"],
+    ["inspections", "Inspections"],
+    ["documents", "Documents"],
+    ["decisions", "Decisions"],
+    ["materials", "Materials & orders"],
+    ["terms", "Terms"],
     ["timeline", "Site progress"],
   ]
     .map(([id, label]) =>
@@ -331,6 +408,30 @@ function officePage() {
     )}</div>${state.officeTab === "timesheets" ? button("Export CSV", "export", "button", "download") : ""}</div>${officeSection()}`;
 }
 function officeSection() {
+  if (state.officeTab === "backup") return backupView();
+  if (["variations", "costing"].includes(state.officeTab))
+    return financeView(state.officeTab, state.data);
+  if (["inspections", "documents", "decisions"].includes(state.officeTab))
+    return projectView(state.officeTab, state.data, {
+      query: state.projectQuery,
+    });
+  if (["planning", "materials"].includes(state.officeTab))
+    return planningView(state.officeTab, state.data, {
+      date: state.planningDate,
+      mode: state.planningMode,
+      materialStatus: state.materialStatus,
+    });
+  if (["quotes", "terms"].includes(state.officeTab))
+    return quoteOfficeView(state.officeTab, state.data, {
+      query: state.quoteQuery,
+      userId: state.user.id,
+    });
+  if (["contacts", "pricebook"].includes(state.officeTab))
+    return commercialView(state.officeTab, state.data, {
+      query: state.commercialQuery,
+      contactRole: state.contactRole,
+      approval: state.contactApproval,
+    });
   if (state.officeTab === "hours")
     return `<section class="panel"><div class="panel-header"><div><h2>Central usual hours</h2><p class="sub">Effective-dated suggestions. Actual time entries never change.</p></div></div><div class="schedule-people">${state.data.users
       .filter((u) => u.active && u.role === "worker")
@@ -406,7 +507,7 @@ function officeSection() {
           .filter((t) => t.jobId === j.id)
           .reduce((n, t) => n + entryMinutes(t), 0),
         percent = j.estimateMinutes ? (actual / j.estimateMinutes) * 100 : 0;
-      return `<tr><td><strong>${e(j.name)}</strong><span class="cell-sub">${e(j.code)}</span></td><td><span class="pill ${j.status}">${e(j.stage)}</span></td><td><strong>${hours(actual)}</strong></td><td>${j.estimateMinutes ? hours(j.estimateMinutes) : "—"}</td><td><div class="progress ${percent > 100 ? "over" : ""}" title="${Math.round(percent)}% of estimated hours"><i style="width:${Math.min(100, percent)}%"></i></div><span class="cell-sub">${j.estimateMinutes ? `${Math.round(percent)}% of estimate` : "No estimate"}</span></td><td><button class="icon-button" data-action="edit-job:${j.id}" aria-label="Edit ${e(j.name)}">${icon("edit")}</button></td></tr>`;
+      return `<tr><td><strong>${e(j.name)}</strong><span class="cell-sub">${e(j.code)}</span></td><td><span class="pill ${e(j.status)}">${e(j.stage)}</span></td><td><strong>${hours(actual)}</strong></td><td>${j.estimateMinutes ? hours(j.estimateMinutes) : "—"}</td><td><div class="progress ${percent > 100 ? "over" : ""}" title="${Math.round(percent)}% of estimated hours"><i style="width:${Math.min(100, percent)}%"></i></div><span class="cell-sub">${j.estimateMinutes ? `${Math.round(percent)}% of estimate` : "No estimate"}</span></td><td><button class="icon-button" data-action="edit-job:${j.id}" aria-label="Edit ${e(j.name)}">${icon("edit")}</button></td></tr>`;
     })
     .join("")}</tbody></table></div></section>`;
 }
@@ -490,9 +591,11 @@ function draftAutoSave(kind, id) {
       )
       .then(() => {
         const label = dialog.querySelector(".draft-status");
+        draftFailure = null;
         if (label) label.textContent = "Draft saved on device";
       })
       .catch((error) => {
+        draftFailure = error;
         const label = dialog.querySelector(".draft-status");
         if (label) {
           label.textContent = "Draft could not be saved";
@@ -664,8 +767,10 @@ async function noteForm(draftId = null, entryId = null) {
   );
   draftAutoSave("note", did);
 }
-async function mediaForm(kind = "photo") {
-  const job = currentJob();
+async function mediaForm(kind = "photo", reference = null) {
+  const job = reference
+    ? assignedJobs().find((j) => j.id === reference.jobId)
+    : currentJob();
   if (!job) {
     toast("Choose an assigned job first.");
     return;
@@ -675,7 +780,7 @@ async function mediaForm(kind = "photo") {
     kind === "video"
       ? "Short clips. Useful details."
       : "Capture the progress, without the paperwork.",
-    `<form><label class="field"><span>Job</span><select name="jobId">${jobOptions(job.id)}</select></label>${field("Work date", "date", state.date, "date", "required")}<label class="field"><span>${kind === "video" ? "Choose a video" : "Choose photos"}</span><input name="files" type="file" accept="${kind === "video" ? "video/*" : "image/*"}" ${kind === "photo" ? "multiple" : ""} required><small>${kind === "video" ? "Choose a video from your library. Imported videos stay unchanged; maximum 50 MB." : "Multiple photos welcome. Images resize to 1920 px and use WebP or JPEG."}</small></label><label class="field"><span>Or open your camera</span><input name="capture" type="file" accept="${kind === "video" ? "video/*" : "image/*"}" capture="environment"><small>Camera options depend on your device. The file picker always remains available.</small></label>${kind === "video" ? '<label class="checkbox"><input name="allowLarge" type="checkbox"> Allow demo sync for a video larger than 10 MB</label>' : ""}<div class="notice">${icon("upload")}<p>Files stay on this device. Media waits for your upload preference; demo syncing never sends files to a server.</p></div><p id="media-progress" class="form-help" role="status"></p>${formFooter("Save on device")}</form>`,
+    `<form>${reference ? `<div class="notice"><p>Reference view: ${e(reference.name)}. Take a new photo from a similar position when practical; no location tracking is used.</p></div>` : ""}<label class="field"><span>Job</span><select name="jobId">${jobOptions(job.id)}</select></label>${field("Work date", "date", state.date, "date", "required")}<label class="field"><span>${kind === "video" ? "Choose a video" : "Choose photos"}</span><input name="files" type="file" accept="${kind === "video" ? "video/*" : "image/*"}" ${kind === "photo" ? "multiple" : ""} required><small>${kind === "video" ? "Choose a video from your library. Imported videos stay unchanged; maximum 50 MB." : "Multiple photos welcome. Images resize to 1920 px and use WebP or JPEG."}</small></label><label class="field"><span>Or open your camera</span><input name="capture" type="file" accept="${kind === "video" ? "video/*" : "image/*"}" capture="environment"><small>Camera options depend on your device. The file picker always remains available.</small></label>${kind === "video" ? '<label class="checkbox"><input name="allowLarge" type="checkbox"> Allow demo sync for a video larger than 10 MB</label>' : ""}<div class="notice">${icon("upload")}<p>Files stay on this device. Media waits for your upload preference; demo syncing never sends files to a server.</p></div><p id="media-progress" class="form-help" role="status"></p>${formFooter("Save on device")}</form>`,
     async (f, form) => {
       const files = [...f.getAll("files"), ...f.getAll("capture")].filter(
         (file) => file.size > 0,
@@ -704,6 +809,13 @@ async function mediaForm(kind = "photo") {
             state.user.id,
             f.get("date"),
           );
+          if (reference) {
+            if (f.get("jobId") !== reference.jobId)
+              throw new Error(
+                "Repeat photos must stay on their reference job.",
+              );
+            m.metadata.repeatFromMediaId = reference.id;
+          }
           await saveMedia(m.metadata, m.blob, m.thumbnail, state.user);
           saved.push(files[i].name);
         } catch (err) {
@@ -810,7 +922,10 @@ async function jobDetail(id) {
   modal(
     e(job.name),
     `${e(job.code)} · ${e(job.category)}`,
-    `<div class="site-detail-visual">${siteSketch(job.color)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${!Number.isFinite(job.lat) || !Number.isFinite(job.lng) ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div><div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
+    `${state.user.role === "office_admin" ? `<div class="notice ${job.authorisationId ? "" : "warning"}"><p>${job.sourceQuoteId ? `Accepted quote linked. ${button("View source quote", `quote-view:${job.sourceQuoteId}`, "text-button")}` : job.authorisationId ? "Direct-work authorisation recorded." : "Acceptance details need review. Existing records and worker access are preserved."}</p></div>` : ""}<div class="site-detail-visual">${jobPhotoMarkup(job)}</div><dl class="detail-definition"><dt>Site location</dt><dd>${e(job.address)}</dd><dt>Stage</dt><dd>${e(job.stage)}</dd><dt>Coordinates</dt><dd>${!Number.isFinite(job.lat) || !Number.isFinite(job.lng) ? "Not provided" : `${job.lat}, ${job.lng}`}</dd><dt>${state.user.role === "office_admin" ? "Actual labour" : "Your recorded time"}</dt><dd>${hours(time)}</dd>${state.user.role === "office_admin" ? `<dt>Estimated labour</dt><dd>${hours(job.estimateMinutes)}</dd>` : ""}</dl><div class="setting-section"><h3>Site instructions</h3><p>${e(job.instructions) || "No additional instructions."}</p></div>${state.user.role === "worker" ? workerJobRecords(state.data, id) : ""}<div class="form-footer">${state.user.role === "office_admin" ? button("Edit job", `edit-job:${id}`, "button", "edit") : ""}${job.status === "active" ? button("Use this job", `select-job:${id}`, "button primary", "check") : ""}${button("View records", `job-records:${id}`, "button", "arrow")}</div>`,
+  );
+  await hydrateJobPhotos(dialog, state.data.jobs, state.data.media, (url) =>
+    state.urls.push(url),
   );
 }
 async function jobForm(id = null) {
@@ -833,13 +948,15 @@ async function jobForm(id = null) {
   modal(
     id ? "Edit job" : "Create a job",
     "A readable location works even without a postal address.",
-    `<form>${field("Job name", "name", job.name, "text", 'required maxlength="120"')}${field("Site address or description", "address", job.address, "text", 'required maxlength="300"')}<div class="form-grid">${field("Latitude (optional)", "lat", job.lat ?? "", "number", 'step="any" min="-90" max="90"')}${field("Longitude (optional)", "lng", job.lng ?? "", "number", 'step="any" min="-180" max="180"')}</div><div class="form-grid">${field("Suggested radius (metres)", "radius", job.radius, "number", 'min="1" required')}${field("Estimated labour hours", "estimate", job.estimateMinutes / 60, "number", 'min="0" step="0.25" required')}</div><div class="form-grid">${field("Stage", "stage", job.stage, "text", 'required maxlength="100"')}<label class="field"><span>Status</span><select name="status"><option value="active" ${job.status === "active" ? "selected" : ""}>Active</option><option value="completed" ${job.status === "completed" ? "selected" : ""}>Completed</option></select></label></div><label class="field"><span>Site instructions</span><textarea name="instructions" maxlength="4000">${e(job.instructions)}</textarea></label><div class="field"><span>Assigned workers</span>${state.data.users
+    `<form>${field("Job name", "name", job.name, "text", 'required maxlength="200"')}${field("Site address or description", "address", job.address, "text", 'required maxlength="500"')}<div class="form-grid">${field("Latitude (optional)", "lat", job.lat ?? "", "number", 'step="any" min="-90" max="90"')}${field("Longitude (optional)", "lng", job.lng ?? "", "number", 'step="any" min="-180" max="180"')}</div><div class="form-grid">${field("Suggested radius (metres)", "radius", job.radius, "number", 'min="1" required')}${field("Estimated labour hours", "estimate", job.estimateMinutes / 60, "number", 'min="0" step="0.25" required')}</div><div class="form-grid">${field("Stage", "stage", job.stage, "text", 'required maxlength="100"')}<label class="field"><span>Status</span><select name="status"><option value="active" ${job.status === "active" ? "selected" : ""}>Active</option><option value="completed" ${job.status === "completed" ? "selected" : ""}>Completed</option></select></label></div><label class="field"><span>Site instructions</span><textarea name="instructions" maxlength="10000">${e(job.instructions)}</textarea></label><div class="field"><span>Assigned workers</span>${state.data.users
       .filter((u) => u.role === "worker" && u.active)
       .map(
         (u) =>
           `<label class="checkbox"><input type="checkbox" name="workerIds" value="${u.id}" ${job.workerIds.includes(u.id) ? "checked" : ""}> ${e(u.displayName)}</label>`,
       )
-      .join("")}</div>${formFooter(id ? "Save job" : "Create job")}</form>`,
+      .join(
+        "",
+      )}</div>${!id ? `<fieldset class="quote-line"><legend>Direct / charge-up authorisation</legend><p class="form-help">For quoted work, accept its issued quote instead. This records authorisation for new direct work.</p>${field("Customer", "authCustomer", "", "text", "required")}${field("Agreed scope", "authScope", "", "text", "required")}${field("Charging basis / rates reference", "authBasis", "", "text", "required")}${field("Terms reference", "authTerms", "", "text", "required")}${field("Authorising person", "authPerson", "", "text", "required")}${field("Authorisation date", "authDate", workDate(), "date", "required")}${field("Supporting reference", "authReference", "", "text", "required")}</fieldset>` : ""}${formFooter(id ? "Save job" : "Create job")}</form>`,
     async (f) => {
       await api.saveJob({
         ...job,
@@ -857,6 +974,17 @@ async function jobForm(id = null) {
         status: f.get("status"),
         instructions: f.get("instructions"),
         workerIds: f.getAll("workerIds"),
+        chargeUpAuthorisation: id
+          ? undefined
+          : {
+              customer: f.get("authCustomer"),
+              scope: f.get("authScope"),
+              pricingBasis: f.get("authBasis"),
+              terms: f.get("authTerms"),
+              authorisedBy: f.get("authPerson"),
+              authorisedDate: f.get("authDate"),
+              reference: f.get("authReference"),
+            },
       });
       closeModal();
       await refresh();
@@ -901,7 +1029,7 @@ async function viewMedia(id) {
   modal(
     e(media.name),
     `${e(jobName(media.jobId))} · ${prettyDate(media.date)}`,
-    `${media.kind === "video" ? `<video controls playsinline src="${url}" style="width:100%;max-height:50dvh;background:#243e39;border-radius:8px"></video>` : `<img src="${url}" alt="${e(media.name)}" style="width:100%;max-height:50dvh;object-fit:contain;border-radius:8px">`}<dl class="detail-definition" style="margin-top:20px"><dt>File size</dt><dd>${bytes(media.size)}${media.originalSize !== media.size ? ` · original ${bytes(media.originalSize)}` : ""}</dd><dt>State</dt><dd>${statusBadge(media.localState)}</dd>${media.width ? `<dt>Dimensions</dt><dd>${media.width} × ${media.height}</dd>` : ""}<dt>Imported</dt><dd>${e(new Date(media.importedAt).toLocaleString("en-NZ"))}</dd></dl><a class="button full" href="${url}" download="${e(media.name.replace(/\.[^.]+$/, ""))}.${media.mimeType === "image/webp" ? "webp" : media.mimeType === "image/jpeg" ? "jpg" : e(media.name.split(".").pop())}">${icon("download")}Download local file</a><p class="form-help" style="margin-top:14px">No capture date is inferred from file modification time. Compressed photos are not identical to the originals.</p>`,
+    `${media.kind === "video" ? `<video controls playsinline src="${url}" style="width:100%;max-height:50dvh;background:#243e39;border-radius:8px"></video>` : `<img src="${url}" alt="${e(media.name)}" style="width:100%;max-height:50dvh;object-fit:contain;border-radius:8px">`}<dl class="detail-definition" style="margin-top:20px"><dt>File size</dt><dd>${bytes(media.size)}${media.originalSize !== media.size ? ` · original ${bytes(media.originalSize)}` : ""}</dd><dt>State</dt><dd>${statusBadge(media.localState)}</dd>${media.width ? `<dt>Dimensions</dt><dd>${media.width} × ${media.height}</dd>` : ""}<dt>Imported</dt><dd>${e(new Date(media.importedAt).toLocaleString("en-NZ"))}</dd></dl><a class="button full" href="${url}" download="${e(media.name.replace(/\.[^.]+$/, ""))}.${media.mimeType === "image/webp" ? "webp" : media.mimeType === "image/jpeg" ? "jpg" : e(media.name.split(".").pop())}">${icon("download")}Download local file</a>${media.kind === "photo" && state.data.media.some((m) => m.id === media.id) ? button("Add photo of this view", `repeat-photo:${media.id}`, "button", "camera") : ""}${media.kind === "photo" && state.user.role === "office_admin" && state.data.media.some((m) => m.id === media.id) ? button("Use as job cover", `job-cover:${media.id}`, "button", "photo") : ""}<p class="form-help" style="margin-top:14px">No capture date is inferred from file modification time. Compressed photos are not identical to the originals.</p>`,
   );
 }
 function settings() {
@@ -930,7 +1058,7 @@ function settings() {
       )
       .join(
         "",
-      )}</select></label><div style="display:flex;flex-wrap:wrap;gap:8px">${button("Try an edit conflict", "simulate-conflict", "button", "history")}${button("Expire demo session", "expire-session", "button", "clock")}${button("Renew demo session", "renew-session", "button", "check")}</div></div><div class="setting-section"><h3>Usual hours</h3><p>Office-managed weekly schedules apply by effective date. Actual times are always editable. Previous personal suggestions are retained for review.</p>${user.role === "office_admin" ? button("Manage usual hours", "manage-hours", "button", "calendar") : "<p>Ask the office to configure or update your usual hours.</p>"}</div><div class="setting-section"><h3>Device storage</h3><p id="storage-info">Checking available storage…</p>${button("Request persistent storage", "persist-storage", "button", "download")}<p style="margin-top:10px">Browser storage is best effort. Clearing site data removes demo records and files. This is not a backup.</p></div><div class="setting-section"><h3>Local concept workspace</h3><p>All people and jobs are fictional. Demo sign-in and permissions are for exploration, not production security. No email, external service or database connection is used.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${button("About & privacy", "about", "button", "info")}${button("Sign out", "logout", "button", "logout")}${button("Reset demo data", "reset", "button danger", "trash")}</div></div>`,
+      )}</select></label><div style="display:flex;flex-wrap:wrap;gap:8px">${button("Try an edit conflict", "simulate-conflict", "button", "history")}${button("Expire demo session", "expire-session", "button", "clock")}${button("Renew demo session", "renew-session", "button", "check")}</div></div><div class="setting-section"><h3>Usual hours</h3><p>Office-managed weekly schedules apply by effective date. Actual times are always editable. Previous personal suggestions are retained for review.</p>${user.role === "office_admin" ? button("Manage usual hours", "manage-hours", "button", "calendar") : "<p>Ask the office to configure or update your usual hours.</p>"}</div><div class="setting-section"><h3>Device storage</h3><p id="storage-info">Checking available storage…</p>${button("Request persistent storage", "persist-storage", "button", "download")}<p style="margin-top:10px">Browser storage is best effort. Clearing site data removes demo records and files. This is not a backup.</p></div><div class="setting-section"><h3>Application version</h3><p>Installed v${e(buildInfo.frontendVersion)} · ${e(buildInfo.environment)}</p><button type="button" class="button" data-release="details">Build Details</button><button type="button" class="button" data-release="check">Check for updates</button></div><div class="setting-section"><h3>Local concept workspace</h3><p>All people and jobs are fictional. Demo sign-in and permissions are for exploration, not production security. No email, external service or database connection is used.</p><div style="display:flex;flex-wrap:wrap;gap:8px">${button("About & privacy", "about", "button", "info")}${button("Sign out", "logout", "button", "logout")}${button("Reset demo data", "reset", "button danger", "trash")}</div></div>`,
   );
   navigator.storage
     ?.estimate?.()
@@ -1131,7 +1259,7 @@ function exportCSV() {
   toast("Timesheet CSV exported");
 }
 function renderLogin() {
-  root.innerHTML = `<main class="login-page"><section class="login-intro"><a class="brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a><h1>Record the work.<br><em>Get on with your day.</em></h1><p>Simple site records, less paperwork. Time, notes, photos and videos — all in one place, even when you’re offline.</p><p class="snapshot-label">LOCAL CONCEPT · FICTIONAL DATA ONLY</p></section><section class="login-form-wrap"><div class="login-form"><p class="eyebrow">Welcome to your workspace</p><h2>${state.loginEmail ? "Check your demo code" : "Let’s get you on site."}</h2><p>${state.loginEmail ? "No email is sent. Use the code shown below to try the sign-in experience." : "Try a fictional account below, or explore the invite-only sign-in flow."}</p>${state.demoCode ? `<div class="demo-code">Local mock email · ${e(state.loginEmail)}<strong>${e(state.demoCode)}</strong>For this demo only. Expires in 10 minutes.</div>` : ""}<form id="login-form">${state.loginEmail ? `${field("One-time demo code", "code", "", "text", 'required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"')}` : field("Invited email address", "email", "alex@example.test", "email", 'required autocomplete="email"')}<p class="form-error" role="alert"></p><button type="submit" class="button primary full">${state.loginEmail ? "Sign in" : "Get demo code"}${icon("arrow")}</button>${state.loginEmail ? button("Use another email", "login-back", "text-button") : ""}</form><div class="login-divider">OR EXPLORE A DEMO ACCOUNT</div><div class="persona-grid">${[
+  root.innerHTML = `<header class="login-version-header"><a class="brand" href="/sitelog/">SiteLog</a>${versionLabel()}</header><main class="login-page"><section class="login-intro"><a class="brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a><h1>Record the work.<br><em>Get on with your day.</em></h1><p>Simple site records, less paperwork. Time, notes, photos and videos — all in one place, even when you’re offline.</p><p class="snapshot-label">LOCAL CONCEPT · FICTIONAL DATA ONLY</p></section><section class="login-form-wrap"><div class="login-form"><p class="eyebrow">Welcome to your workspace</p><h2>${state.loginEmail ? "Check your demo code" : "Let’s get you on site."}</h2><p>${state.loginEmail ? "No email is sent. Use the code shown below to try the sign-in experience." : "Try a fictional account below, or explore the invite-only sign-in flow."}</p>${state.demoCode ? `<div class="demo-code">Local mock email · ${e(state.loginEmail)}<strong>${e(state.demoCode)}</strong>For this demo only. Expires in 10 minutes.</div>` : ""}<form id="login-form">${state.loginEmail ? `${field("One-time demo code", "code", "", "text", 'required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"')}` : field("Invited email address", "email", "alex@example.test", "email", 'required autocomplete="email"')}<p class="form-error" role="alert"></p><button type="submit" class="button primary full">${state.loginEmail ? "Sign in" : "Get demo code"}${icon("arrow")}</button>${state.loginEmail ? button("Use another email", "login-back", "text-button") : ""}</form><div class="login-divider">OR EXPLORE A DEMO ACCOUNT</div><div class="persona-grid">${[
     ["alex", "Alex Taylor", "Worker"],
     ["morgan", "Morgan Reed", "Office admin"],
   ]
@@ -1195,10 +1323,132 @@ async function doSwitch(id) {
   notify();
   void sync.run();
 }
-async function action(value) {
+async function action(value, event) {
   const split = value.indexOf(":"),
     name = split < 0 ? value : value.slice(0, split),
     id = split < 0 ? "" : value.slice(split + 1);
+  if (name === "repeat-photo") {
+    const photo = state.data.media.find(
+      (m) =>
+        m.id === id &&
+        m.kind === "photo" &&
+        assignedJobs().some((j) => j.id === m.jobId),
+    );
+    if (!photo) throw new Error("Reference photo unavailable.");
+    return mediaForm("photo", photo);
+  }
+  if (name === "job-cover") {
+    const photo = state.data.media.find((m) => m.id === id);
+    const job = photo && state.data.jobs.find((j) => j.id === photo.jobId);
+    if (!job) throw new Error("Job photo unavailable.");
+    await setJobCover(job.id, id, { expectedRevision: job.revision || 0 });
+    closeModal();
+    await refresh();
+    notify();
+    return;
+  }
+  if (name === "document-download") {
+    const [documentId, versionId] = id.split(":");
+    return downloadProjectDocument(documentId, versionId);
+  }
+  if (name.startsWith("backup-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return backupAction(name, {
+      modal,
+      footer: formFooter,
+      close: closeModal,
+      toast,
+      onChanged: async () => {
+        await refresh();
+        notify();
+      },
+    });
+  }
+  if (name.startsWith("finance-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return financeAction(
+      name,
+      id,
+      {
+        modal,
+        footer: formFooter,
+        close: closeModal,
+        onChanged: async () => {
+          await refresh();
+          notify();
+        },
+      },
+      event,
+    );
+  }
+  if (name.startsWith("project-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return projectAction(name, id, {
+      modal,
+      footer: formFooter,
+      close: closeModal,
+      onChanged: async () => {
+        await refresh();
+        notify();
+      },
+    });
+  }
+  if (name.startsWith("plan-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return planningAction(name, id, {
+      modal,
+      footer: formFooter,
+      close: closeModal,
+      onChanged: async () => {
+        await refresh();
+        notify();
+      },
+    });
+  }
+  if (name.startsWith("quote-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return quoteAction(
+      name,
+      id,
+      {
+        modal,
+        footer: formFooter,
+        close: closeModal,
+        onChanged: async () => {
+          await refresh();
+          notify();
+        },
+        showTerms: async () => {
+          state.officeTab = "terms";
+          await refresh();
+        },
+        showQuotes: async () => {
+          state.officeTab = "quotes";
+          await refresh();
+        },
+      },
+      event,
+    );
+  }
+  if (name.startsWith("commerce-")) {
+    if (state.user?.role !== "office_admin")
+      throw new Error("Office access is required.");
+    return commercialAction(name, id, {
+      modal,
+      footer: formFooter,
+      close: closeModal,
+      onChanged: async () => {
+        await refresh();
+        notify();
+        toast("Commercial record saved locally");
+      },
+    });
+  }
   switch (name) {
     case "nav":
       navigate(id);
@@ -1476,9 +1726,13 @@ async function action(value) {
 async function onClick(event) {
   const target = event.target.closest("[data-action]");
   if (!target) return;
+  if (releases.preparing) {
+    event.preventDefault();
+    return;
+  }
   event.preventDefault();
   try {
-    await action(target.dataset.action);
+    await action(target.dataset.action, event);
   } catch (error) {
     toast(error.message);
   }
@@ -1504,13 +1758,51 @@ dialog.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   const key = event.target.dataset.filter;
   if (!key) return;
-  if (key === "date") {
+  if (key === "planning-date")
+    state.planningDate = event.target.value || workDate();
+  else if (key === "planning-mode") state.planningMode = event.target.value;
+  else if (key === "material-status") state.materialStatus = event.target.value;
+  else if (key === "commerce-role") state.contactRole = event.target.value;
+  else if (key === "commerce-approval")
+    state.contactApproval = event.target.value;
+  else if (key === "date") {
     state.date = event.target.value || workDate();
   } else if (key === "job") state.jobFilter = event.target.value;
   else if (key === "job-status") state.jobStatus = event.target.value;
   void refresh();
 });
 root.addEventListener("input", (event) => {
+  if (event.target.dataset.filter === "project-query") {
+    state.projectQuery = event.target.value;
+    const start = event.target.selectionStart;
+    void refresh().then(() => {
+      const el = root.querySelector("#project-search");
+      el?.focus();
+      el?.setSelectionRange(start, start);
+    });
+    return;
+  }
+  if (event.target.dataset.filter === "quote-query") {
+    state.quoteQuery = event.target.value;
+    const start = event.target.selectionStart;
+    void refresh().then(() => {
+      const el = root.querySelector("#quote-search");
+      el?.focus();
+      el?.setSelectionRange(start, start);
+    });
+    return;
+  }
+  if (event.target.dataset.filter === "commerce-query") {
+    state.commercialQuery = event.target.value;
+    const start = event.target.selectionStart;
+    void refresh().then(() => {
+      const el = root.querySelector("#commerce-search");
+      el?.focus();
+      el?.setSelectionRange(start, start);
+    });
+    return;
+  }
+
   if (event.target.dataset.filter !== "query") return;
   state.query = event.target.value;
   const start = event.target.selectionStart;
@@ -1563,6 +1855,28 @@ async function start() {
       };
     }
     await refresh();
+    const requestedDocument = new URL(location.href).searchParams.get(
+      "document",
+    );
+    if (requestedDocument && state.user) {
+      if (state.user.role === "office_admin")
+        await projectAction("project-document", requestedDocument, {
+          modal,
+          footer: formFooter,
+          close: closeModal,
+          onChanged: async () => {
+            await refresh();
+            notify();
+          },
+        }).catch((error) => toast(error.message));
+      else {
+        const doc = state.data.sharedDocuments.find(
+          (d) => d.id === requestedDocument,
+        );
+        if (doc) await jobDetail(doc.jobId);
+        else toast("This document is unavailable to your account.");
+      }
+    }
     new MutationObserver(() => {
       if (state.page === "media") void hydrateMedia();
     }).observe(root, { childList: true });
@@ -1587,18 +1901,9 @@ async function start() {
       void refresh();
       void sync.run();
     });
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sitelog/service-worker.js", { scope: "/sitelog/" })
-        .catch(() =>
-          toast(
-            "Offline installation is unavailable here. Use localhost or HTTPS.",
-          ),
-        );
-    }
     void sync.run();
   } catch (error) {
-    root.innerHTML = `<div class="boot"><h1>Let’s get storage working.</h1><p>${e(error.message)}</p><p class="muted small">Use localhost or HTTPS, allow browser storage, then reload.</p></div>`;
+    root.innerHTML = `<header class="boot-header"><a class="brand" href="/sitelog/">SiteLog</a>${versionLabel()}</header><div class="boot"><h1>Let’s get storage working.</h1><p>${e(error.message)}</p><p class="muted small">Use localhost or HTTPS, allow browser storage, then reload.</p></div>`;
   }
 }
 void start();

@@ -31,3 +31,17 @@ Run only with fictional information. Automated Chrome results do not replace the
 - [ ] Confirm workers cannot correct locked entries or retrieve office-only fields. Office locked corrections require a reason/explicit intent and retain lock/history.
 - [ ] Check gap selection, collapsed optional note, keyboard and safe-area behaviour on real iPhone/Android; save remains reachable and there is no horizontal scrolling.
 - [ ] Try denied/poor/adjacent/no-match GPS with saved and missing site coordinates. Confirm manual choice remains available and no location is stored.
+
+## v3 expansion local acceptance
+
+Run the automated suites first. Explore with synthetic inputs only:
+
+- Header/Build Details on login, worker, every office tab, offline and storage error; installed version must match its artifact. Build another local artifact, defer, finish forms, reload, then rehearse a verified static rollback while retained work survives.
+- Client/supplier approval and two supplier prices/conversions; client rate then reasoned manual override. Try stale edits, suspended suppliers, expired prices and missing costs.
+- Configure branding and your own Standard terms; edit/remove/reload ordered clauses and confirm replacements. Issue a quote, change a template/catalogue, verify the original print/CSV snapshot is unchanged. Record acceptance twice and check one linked job/material/inspection set.
+- Plan a crew/subcontractor activity, record a conflict/readiness override, change a dependency, prepare/manual-issue a PO and receive a partial delivery. No external party is contacted. Worker schedules reopen offline without financial data.
+- Fail an inspection, create/pass its follow-up, retain the original failure. Upload multiple files/new versions and revoke worker sharing. Compare old bytes/checksums; financial categories remain office-only. Repeat a site photo and select an accepted thumbnail cover.
+- Submit/approve a variation and compare original/approved/pending/revised cost bases. Enter a dated job labour-cost basis and completed subcontractor cost; reconcile received actual costs against outstanding order balances. Missing values must remain unknown.
+- Download/inspect a local archive, run the isolated restore rehearsal, then test missing-ID import using a disposable profile. Existing records, sessions, queue and file bytes must remain intact. Protect the archive as private.
+
+Real-device gates remain open: iPhone/Safari and Android installed-PWA capture, keyboard/dialog scrolling, offline termination/storage pressure, multi-window update, failed-install/legacy profile recovery, download handling and accessibility/contrast/touch review. Real service/auth/storage/backup restore, infrastructure staging and reviewed legal/retention configuration require their own acceptance; Chrome synthetic tests do not establish them.

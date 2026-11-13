@@ -56,10 +56,26 @@ See [architecture](docs/ARCHITECTURE.md), [implementation status](docs/IMPLEMENT
 
 ## Operations expansion — Stage 1
 
-Discovery and the staged plan are in [SITELOG_GAP_ANALYSIS.md](docs/SITELOG_GAP_ANALYSIS.md). The operations specification is archived in [SiteLog_Operations_Codex_Specification.md](docs/SiteLog_Operations_Codex_Specification.md). This iteration extends the existing mockup; commercial Stages 2–8 are still on the implementation checklist.
+Discovery and the staged plan are in [SITELOG_GAP_ANALYSIS.md](docs/SITELOG_GAP_ANALYSIS.md). The operations specification is archived in [SiteLog_Operations_Codex_Specification.md](docs/SiteLog_Operations_Codex_Specification.md). This history describes the earlier time-entry stage. The v3 local expansion is now implemented as described below; real cloud/security integration remains separate.
 
 Switch to **Morgan → Office admin → Usual hours** to configure a worker's effective weekly pattern. Enter Monday, select it as a working day and use **Copy Monday to weekdays**, or specify different days individually. There is no invented company schedule: unconfigured/non-working days ask for actual times. Previous explicit personal suggestions are retained for office review.
 
 Record Time now finds remaining gaps across jobs, avoids repeating the day's unpaid break and preserves manual edits/drafts when the date or worker changes. Earlier gaps are explicit choices; a fully recorded usual shift requires actual extra time. Hours-only legacy records stay readable and require review before automatic gap calculation. Locked entries need an explicit office correction with a reason.
 
-The browser database upgrades additively to schema v2 without renaming it, clearing data or reseeding existing installations. **Read [migration/backup/recovery notes](docs/MIGRATIONS.md) before trying the upgrade with valued local data.** The application is still a local mockup, not a production authentication or cloud service.
+The browser database now upgrades additively to schema v8 (including the earlier v2 time/schedule migration) without renaming it, clearing data or reseeding existing installations. **Read [migration/backup/recovery notes](docs/MIGRATIONS.md) before trying the upgrade with valued local data.** The application is still a local mockup, not a production authentication or cloud service.
+
+## v3 local expansion
+
+The compact header on every page displays the installed package version. Tap it for Git/build UTC/environment details and update controls. `npm start` builds a complete immutable artifact once. To try a new local build while the server runs, use `npm --prefix sitelog run build`, then **Build Details → Check for updates → Reload**. Finish open forms first; saved drafts, uploads, preferences and private files remain on the device. Generated artifacts are ignored in `.build/`.
+
+In Morgan’s office interface, try:
+
+1. **Contacts & approvals / Price book:** add a client and supplier, explicitly approve the supplier, then enter items, supplier buy costs/conversions and client sell rates. Manual sell overrides require a reason.
+2. **Terms / Quotes:** configure your own Standard clauses and business branding, create a standalone quote, move it to Review and issue an immutable snapshot. Print/Save as PDF and CSV use that snapshot; XLSX is the explicit [staged follow-up](docs/XLSX_FOLLOW_UP.md). No legal wording is invented.
+3. **Acceptance:** record who approved the issued quote, when and the supporting reference. One linked job, planned materials and inspections are created, even if the request retries. Direct jobs use a recorded charge-up authorisation instead.
+4. **Schedule / Materials & orders:** plan workers/subcontractors, review conflicts and readiness, prepare/record manual orders and receive partial deliveries. No supplier or authority is contacted.
+5. **Inspections / Documents / Decisions:** retain outcomes/follow-ups, upload immutable file versions, explicitly share appropriate site information and record decisions. Accepted photo thumbnails can be job covers; repeat capture preserves its reference.
+6. **Variations / Job costing:** record submitted/approved changes without rewriting the accepted quote. Compare original/revised/pending estimates with accepted hours, explicit labour-cost bases, received material costs and outstanding commitments.
+7. **Backup & restore:** download a complete private local archive, verify/rehearse restoration in isolation, or import missing records while retaining every existing ID. Login codes/sessions are excluded.
+
+All of this remains a browser-local concept. Use synthetic information; no cloud API, real authentication, R2, external email/order/inspection booking or production deployment is connected.

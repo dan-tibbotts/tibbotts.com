@@ -41,7 +41,10 @@ await run(
 await send("Page.reload", { ignoreCache: true });
 await waitFor("document.querySelector('.current-job')");
 await action("time");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 check(
   await evaluate(
     "document.querySelector('#time-suggestions').textContent.includes('not configured')&&document.querySelector('[name=start]').value===''&&document.querySelector('[name=end]').value===''",
@@ -155,7 +158,10 @@ check(
 await send("Page.reload");
 await waitFor("document.querySelector('.current-job')");
 await action("time");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 check(
   await evaluate(
     "!document.querySelector('[name=workerId]')&&document.querySelector('[name=jobId]').value==='harbour'&&document.querySelector('[name=start]').value==='10:00'",
@@ -182,7 +188,10 @@ await waitFor("document.querySelector('.draft-banner')");
 await action("drafts");
 await waitFor("document.querySelector('[data-action^=\"resume-draft:\"]')");
 await click('[data-action^="resume-draft:"]');
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 check(
   await evaluate(
     "document.querySelector('[name=start]').value==='10:15'&&document.querySelector('#time-context').textContent.includes('saved draft')",
@@ -203,7 +212,10 @@ await waitFor("document.body.innerText.includes('Hours-only record')");
 check(true, "hours-only records remain readable in daily records");
 await action("nav:today");
 await action("time");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 check(
   await evaluate(
     "document.querySelector('#time-suggestions').textContent.includes('hours-only')&&document.querySelector('[name=start]').value===''",
@@ -278,7 +290,10 @@ await waitFor("document.querySelector('#network-setting')");
 await change("#network-setting", "offline");
 await action("close");
 await action("edit-time:seed-today-alex");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 await fill("[name=breakMinutes]", "5");
 await submit();
 await waitFor("!document.querySelector('#dialog').open");
@@ -336,7 +351,10 @@ await waitFor(
   "document.querySelector('#dialog').textContent.includes('Another entry was accepted')",
 );
 await action("edit-time:offline-overlap");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 await fill("[name=start]", "11:00");
 await fill("[name=end]", "12:00");
 await fill("[name=breakMinutes]", "0");
@@ -368,7 +386,10 @@ await send("Emulation.setDeviceMetricsOverride", {
   mobile: true,
 });
 await action("time");
-await waitFor("document.querySelector('#time-form')");
+// Closed dialogs retain their previous DOM; wait for the newly opened form.
+await waitFor(
+  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+);
 check(
   await evaluate(
     "document.documentElement.scrollWidth<=window.innerWidth&&document.querySelector('#dialog').scrollWidth<=document.querySelector('#dialog').clientWidth",

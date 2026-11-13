@@ -1,35 +1,38 @@
+import { openCompatibleDatabase } from "./database-open.mjs";
 import {
   DATABASE_NAME,
   DATABASE_VERSION,
   STORES,
   upgradeDatabase,
 } from "./migrations.mjs";
-let connection;
+let connection, opening;
 export async function openStore() {
   if (connection) return connection;
-  connection = await new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = (event) =>
-      upgradeDatabase(request.result, request.transaction, event.oldVersion);
-    request.onsuccess = () => {
-      request.result.onversionchange = () => {
-        request.result.close();
-        connection = null;
+  if (opening) return opening;
+  opening = openCompatibleDatabase({
+    name: DATABASE_NAME,
+    version: DATABASE_VERSION,
+    upgrade: upgradeDatabase,
+    requiredStores: STORES,
+  })
+    .then((db) => {
+      connection = db;
+      db.onversionchange = () => {
+        db.close();
+        if (connection === db) connection = null;
       };
-      resolve(request.result);
-    };
-    request.onerror = () =>
-      reject(
-        new Error(
+      return db;
+    })
+    .catch((error) => {
+      throw new Error(
+        error?.message ||
           "Device storage is unavailable. Allow browser storage to use this mockup.",
-        ),
       );
-    request.onblocked = () =>
-      reject(
-        new Error("Close other SiteLog tabs, then reload to update storage."),
-      );
-  });
-  return connection;
+    })
+    .finally(() => {
+      opening = null;
+    });
+  return opening;
 }
 export async function atomic(names, action) {
   const db = await openStore();
