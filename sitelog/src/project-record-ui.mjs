@@ -1,19 +1,23 @@
+import { services } from "./services.mjs";
 import { escape as e, button, empty } from "./ui.mjs";
 import { workDate, prettyDate, bytes, csvCell } from "./domain.mjs";
-import {
-  projectRecords,
-  saveInspection,
-  recordInspectionOutcome,
-  createReinspection,
-  saveDecision,
-} from "./project-record-service.mjs";
-import {
-  documentWorkspace,
-  uploadDocuments,
-  updateDocument,
-  downloadDocument,
-} from "./document-service.mjs";
 import { DOCUMENT_CATEGORIES } from "./document-domain.mjs";
+
+const projectRecords = (...args) => services.project.projectRecords(...args);
+const saveInspection = (...args) => services.project.saveInspection(...args);
+const recordInspectionOutcome = (...args) =>
+  services.project.recordInspectionOutcome(...args);
+const createReinspection = (...args) =>
+  services.project.createReinspection(...args);
+const saveDecision = (...args) => services.project.saveDecision(...args);
+const documentWorkspace = (...args) =>
+  services.documents.documentWorkspace(...args);
+const uploadDocuments = (...args) =>
+  services.documents.uploadDocuments(...args);
+const updateDocument = (...args) => services.documents.updateDocument(...args);
+const downloadDocument = (...args) =>
+  services.documents.downloadDocument(...args);
+
 const field = (label, name, value = "", type = "text", extra = "") =>
   `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${e(value ?? "")}" ${extra}></label>`;
 const area = (label, name, value = "", required = false) =>

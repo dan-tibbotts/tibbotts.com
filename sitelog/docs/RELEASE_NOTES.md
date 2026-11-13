@@ -20,3 +20,9 @@ Use `npm --prefix sitelog start`, then open `http://localhost:4173/sitelog/`. Sw
 Remaining work before real use: independently deployed auth/API/D1/private R2 and trusted server permissions, supported Cloudflare tooling, real-device iOS/Android acceptance, reviewed commercial/legal/privacy/retention/backup policies, real staging/production acceptance and explicit manual production approval. Branded XLSX is the permitted staged follow-up in `XLSX_FOLLOW_UP.md`; current exports are correctly named HTML/CSV. Formal contract/payment/statutory workflows remain separately scoped. No external messages, orders, bookings, DNS/hosting changes, push or production deployment occurred.
 
 Final verification: **69 unit tests**, **241 Chrome browser checks**, **73 JS syntax checks**, manifest/icon/dependency policy, local build and `git diff --check` passed. See `IMPLEMENTATION_STATUS.md` for the per-phase matrix and remaining external/manual gates. No source or infrastructure outside `sitelog/` changed.
+
+## GitHub Pages strategy handoff — 14 November 2026
+
+Added explicit `deployment.json` selection, validated service ports and GitHubPages/Production classes. The UI and sync use the selected facade; production is intentionally unavailable until real adapters are implemented. Added tracked generated Pages entries/assets, source templates, source/configuration/compiler fingerprints and a `check:pages` gate. The user's existing main-branch publication workflow remains unchanged. See `DEPLOYMENT_STRATEGIES.md` for exact commit/build instructions and future AI contracts.
+
+Verification: 76 unit / 258 browser checks passed; source syntax, Pages completeness/freshness, local/Production builds and unchanged homepage/family regressions passed. No commit, push or live deployment occurred.

@@ -1,4 +1,4 @@
-import * as commerce from "./commercial-service.mjs";
+import { services } from "./services.mjs";
 import { escape as e, button, empty, icon } from "./ui.mjs";
 import { workDate, prettyDate } from "./domain.mjs";
 import {
@@ -14,6 +14,9 @@ import {
   decimalUnits,
   roundedDivision,
 } from "./money.mjs";
+
+const commerce = services.commercial;
+
 const field = (label, name, value = "", type = "text", extra = "") =>
   `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${e(value ?? "")}" ${extra}></label>`;
 const select = (label, name, options) =>

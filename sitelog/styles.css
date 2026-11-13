@@ -2675,3 +2675,11 @@ dialog::backdrop {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.boot[role="alert"] {
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+.boot[role="alert"] p {
+  max-width: 640px;
+}

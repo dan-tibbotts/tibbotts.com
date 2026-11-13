@@ -283,3 +283,33 @@ Focused A8 verification: **31 browser checks passed** (backup, missing-ID replay
 The final privacy pass also escapes shared UI action/status attributes and rejects unsafe archive identifiers/references. Tests use disposable browser profiles and synthetic files/data; no existing user's browser database was reset or migrated by the test runner. Generated local builds are ignored. No production deployment, push, external service/database connection, supplier order, email, council booking or website infrastructure change occurred.
 
 **Remaining prerequisites/follow-ups:** reviewed real auth/API/private R2/D1 and service-side permissions; real preview/staging/production configuration and database recovery; iPhone/Android installed-PWA/accessibility and legacy-profile acceptance; reviewed business/legal/retention policies and real approved terms; branded XLSX per `XLSX_FOLLOW_UP.md`; formal contract/payment/statutory workflows under their separate scope. These are not claimed complete by local tests. None blocks experimenting with the implemented local concept. Production remains separately authorised/manual.
+
+## Startup/static-hosting repair — 14 November 2026
+
+The reported public URL was serving the raw source index. Its generated `build-info.mjs` was absent (HTTP 503), so static imports failed before `app.mjs` could render its error UI. The built localhost preview returned the correct generated module and was usable. This was a missing static-hosting verification path in the previous run.
+
+Added an import-free startup wrapper with a caught, actionable failure view; modern mobile-app meta tag; and `build:static` packaging for a complete `/sitelog/` immutable static tree. Packaging retains older asset folders, includes generated build identity/service worker, leaves the active preview pointer alone and never publishes. Browser test helpers now locate the module directory without assuming a particular entry filename.
+
+New verification: **70 unit tests passed**, including static package completeness/retention; **7 startup/static browser checks passed**, reproducing raw-source failure without touching a database, then loading the packaged application on a plain static server and retaining records offline. Full regressions are rerun below. No production deployment, DNS/Pages/route change or user database/cache clearing performed.
+
+Final repair verification (14 November): **70 unit tests, 248 browser checks, 77 JavaScript syntax/manifest/dependency checks passed**. Both `build:static` (production-labelled, local output only) and normal preview build succeeded. Local page, bootstrap and generated metadata each return HTTP 200. The extra seven browser checks use a plain static server, including an offline reopen. `git diff --check` passed. The generated review bundle is `.build/static/sitelog/`; public publication is still pending the user's required production approval.
+
+## GitHub Pages and service strategies — 14 November 2026
+
+The current authorised change supports the user's existing branch-based Pages publication: `build:pages` writes tracked `sitelog/index.html`, `service-worker.js`, `pages-build.json` and complete `assets/<buildId>/`; source HTML/SW moved to `templates/`. `check:pages` verifies source/config/build-script/version freshness plus every asset and both entries. No Actions workflow, root `.nojekyll`, hosting, DNS, homepage or family change is introduced. Local generation never commits/pushes/deploys.
+
+`deployment.json` selects GitHubPages or Production. The composition root/factory validates explicit service method ports. All feature UI and sync business calls use the selected facade. GitHubPages composes the existing mock implementations and keeps the current database/queue/legacy sync lock. Production selects a separate class and reserved client namespace, but deliberately raises `PRODUCTION_NOT_CONFIGURED` before seed/DB/network/app initialization until real adapters are implemented. It does not fall back on mock code. UI demo actions are capability guarded. Full future AI contracts/security/cache/rollout guidance is in `DEPLOYMENT_STRATEGIES.md`.
+
+Verification checkpoint: **76 unit tests and 258 browser checks passed**, including all existing workflows plus real repository static Pages entry, generated selector/identity, immutable target separation, stale/missing asset detection, protected Production startup/data preservation, URL selector isolation and mock strategy reset. Syntax/manifest/zero-dependency checks passed across **89 source/test/script files** (generated asset copies are verified by `check:pages`). Final source/configuration checks follow after documentation/formatting. No new dependencies or production resources connected.
+
+GitHub Pages/strategy final checklist:
+
+- [x] Complete committable root entries, generated identity/config and immutable assets; no separate Node host required on Pages.
+- [x] Build/check commands for the user's existing commit/push workflow; source templates remain separate; stale/missing/changed output is detected.
+- [x] Build-time GitHubPages/Production selection, factory and validated ports used by UI and sync.
+- [x] Existing mock storage, drafts/media/outbox and cross-tab lock preserved.
+- [x] Independent Production strategy with explicit startup/method errors and no mock seed/auth/data/network fallback.
+- [x] AI handoff guide specifying method responsibilities, cache separation, server-authoritative security and production acceptance gates.
+- [ ] Real Production authentication/business/database/file adapters and infrastructure: intentionally deferred, not simulated as working.
+
+Final verification: **76 unit tests passed**, **258 full browser checks passed**. After preserving the legacy mock sync lock, **78 focused original/update/deployment checks passed again**; unit tests and syntax checks were rerun. **89 source/test/script syntax checks**, manifest/icon/zero-dependency policy, `check:pages`, local build, Production review build and `git diff --check` passed. The Production build is a deliberately blocked extension point. No files outside SiteLog changed, and no commit, push, deployment or external service connection was performed. Only the current unpublished Pages artifact is retained in this change; future builds retain prior published asset directories.

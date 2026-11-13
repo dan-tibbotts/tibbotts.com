@@ -1,11 +1,14 @@
-import { acceptQuote } from "./job-authorisation.mjs";
-import * as service from "./quote-service.mjs";
+import { services } from "./services.mjs";
 import { escape as e, button, empty } from "./ui.mjs";
 import { uuid, workDate } from "./domain.mjs";
 import { money, quoteAmounts } from "./money.mjs";
 import { resolveSellRate, approvedSupplier } from "./pricebook.mjs";
 import { duplicateClauses, issueProblems } from "./quote-domain.mjs";
 import { quoteHTML, quoteCSV } from "./quote-export.mjs";
+
+const service = services.quotes;
+const acceptQuote = (...args) => services.jobs.acceptQuote(...args);
+
 const field = (label, name, value = "", type = "text", extra = "") =>
   `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${e(value ?? "")}" ${extra}></label>`;
 const area = (label, name, value = "") =>

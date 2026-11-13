@@ -7,7 +7,12 @@ let checked = 0;
 async function walk(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const file = resolve(dir, entry.name);
-    if (entry.isDirectory() && !entry.name.startsWith(".")) await walk(file);
+    if (
+      entry.isDirectory() &&
+      !entry.name.startsWith(".") &&
+      entry.name !== "assets"
+    )
+      await walk(file);
     else if (/\.(mjs|js)$/.test(entry.name)) {
       const result = spawnSync(process.execPath, ["--check", file], {
         encoding: "utf8",

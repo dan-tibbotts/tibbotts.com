@@ -61,3 +61,9 @@ The existing application is extended, not rebuilt. `app.mjs` coordinates shared 
 `build.mjs` injects package/Git/time/environment once; `release.mjs` and the generated SW keep installed code and metadata bound to one immutable artifact. Cross-tab update preparation checks open forms/durable writes and quiesces the existing single worker sync engine. Office commercial edits remain central/mock online commands; local quote editor drafts can persist offline. No second competing worker outbox is added.
 
 Additive schema 8 retains the database name and original records. The native opener shares concurrent connection attempts and lets an older tab reopen a newer database only if all stores it requires remain present; it never downgrades/deletes data or runs an older migration against a newer schema. Unknown/incompatible clients fail safely and need a compatible artifact.
+
+## Deployment strategy boundary — 14 November 2026
+
+`services.mjs` composes the generated build-time selection through `service-factory.mjs`. UI and sync depend on the explicit method ports in `service-contract.mjs`; the GitHub Pages class composes the existing browser-local feature services. The Production class implements an explicit unavailable contract and fails before application/DB/remote initialization, rather than reusing mock services. Mock-only reset and persona/session experiments are capability guarded. The mock uses its existing database and sync lock; a production client cache has a separate reserved namespace. See `DEPLOYMENT_STRATEGIES.md` for the future implementation contract.
+
+HTML/SW source templates now live in `templates/`; root hosting entries and `assets/<buildId>/` are generated for branch-based Pages publication. The manifest/freshness checker binds source, templates, build scripts, configuration and package version to complete generated files. Preview/Production artifacts remain ignored, and generating them does not overwrite tracked Pages entries.

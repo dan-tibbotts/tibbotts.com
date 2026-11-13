@@ -66,7 +66,7 @@ The browser database now upgrades additively to schema v8 (including the earlier
 
 ## v3 local expansion
 
-The compact header on every page displays the installed package version. Tap it for Git/build UTC/environment details and update controls. `npm start` builds a complete immutable artifact once. To try a new local build while the server runs, use `npm --prefix sitelog run build`, then **Build Details → Check for updates → Reload**. Finish open forms first; saved drafts, uploads, preferences and private files remain on the device. Generated artifacts are ignored in `.build/`.
+The compact header on every page displays the installed package version. Tap it for Git/build UTC/environment details and update controls. `npm start` builds a complete immutable artifact once. To try a new local build while the server runs, use `npm --prefix sitelog run build`, then **Build Details → Check for updates → Reload**. Finish open forms first; saved drafts, uploads, preferences and private files remain on the device. Local/Production review artifacts are ignored in `.build/`; the GitHub Pages assets described below are deliberately committed.
 
 In Morgan’s office interface, try:
 
@@ -79,3 +79,22 @@ In Morgan’s office interface, try:
 7. **Backup & restore:** download a complete private local archive, verify/rehearse restoration in isolation, or import missing records while retaining every existing ID. Login codes/sessions are excluded.
 
 All of this remains a browser-local concept. Use synthetic information; no cloud API, real authentication, R2, external email/order/inspection booking or production deployment is connected.
+
+## GitHub Pages and deployment strategies
+
+The repository now includes complete generated Pages entrypoints and fingerprinted `sitelog/assets/` files, so your existing commit/push-to-main Pages workflow works without a Node server or a new GitHub Actions workflow.
+
+`deployment.json` currently selects `{"target":"GitHubPages"}`. UI and sync use service ports; `GitHubPagesServices` supplies the browser-local mock. `Production` selects the separate `ProductionServices` class. Its real backend adapters are intentionally not implemented yet, so a Production build stops clearly instead of falling back to mock authentication or touching mock data.
+
+After source changes, run:
+
+```sh
+npm --prefix sitelog run build:pages
+npm --prefix sitelog run check:pages
+```
+
+Commit **all relevant `sitelog/` changes**, including generated `index.html`, `service-worker.js`, `pages-build.json`, and `assets/<buildId>/`, along with source, templates and configuration. Then commit/push as you normally do. These commands do not commit, push or deploy. Edit `templates/index.html` / `templates/service-worker.js` rather than the generated root entries. Keep previous published asset directories for installed clients.
+
+Use `npm --prefix sitelog start` for a local preview. `npm --prefix sitelog run build:production` prepares an ignored Production artifact without overwriting the committed Pages files.
+
+The complete strategy design, method contracts, environment selection, production security requirements and future AI implementation checklist are in [DEPLOYMENT_STRATEGIES.md](docs/DEPLOYMENT_STRATEGIES.md).

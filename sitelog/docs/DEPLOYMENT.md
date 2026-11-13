@@ -1,4 +1,6 @@
-# Running now and deploying later
+# GitHub Pages now and Production later
+
+Current workflow: see [DEPLOYMENT_STRATEGIES.md](DEPLOYMENT_STRATEGIES.md). `build:pages` updates committable generated files inside `sitelog/`; your commit/push publishes them using the existing Pages configuration. The GitHubPages mock and fail-closed Production adapter are selected by build configuration.
 
 ## Current iteration
 
@@ -27,3 +29,13 @@ To preview another build locally, run `npm --prefix sitelog run build`, then Che
 - Production release must be manual and explicitly authorised. A push to `main` must not automatically release SiteLog production services.
 
 Do not promote this local authentication adapter or its dataset to production.
+
+## Static-hosting package and startup failure — 14 November 2026
+
+At the time of the startup incident, the repository's root `sitelog/index.html` was an unbuilt source template: its app imported generated `src/build-info.mjs`, which did not exist in source. The source template has now moved to `templates/index.html`; the root index is a generated, committable Pages entry backed by tracked `assets/`. This caused the public page to remain on “Opening your workspace…” when raw source was published. The earlier preview tests only covered the Node build server; a new plain-static-server browser test covers this gap.
+
+`npm --prefix sitelog run build:static` prepares a self-contained tree at `sitelog/.build/static/sitelog/`, with fingerprinted assets (including build identity), generated root HTML and a generated root service worker. It does not publish anything or switch the running preview's active release. Setting `SITELOG_ENV=production` now selects the Production strategy too, rather than merely labelling a mock build as production. It intentionally stops until the real adapters are implemented. The normal local preview remains `npm --prefix sitelog start` → `http://localhost:4173/sitelog/`.
+
+Future approved publication must serve the **generated** tree at `/sitelog/`, retain prior immutable asset folders needed by old clients, and preserve the existing homepage/family/hosting outside SiteLog. Copying raw source or publishing only the generated index is insufficient. No API server is needed for the browser-local mockup; backend build details honestly remain unavailable on a plain static host.
+
+The import-free `boot.mjs` now catches app-module load failures and displays actionable recovery guidance without opening/deleting IndexedDB or clearing caches. It does not invent a version or build identity. Complete packaged builds continue to show their injected header version. Existing cached public pages will only receive this change after an approved publication/update; local fixes do not change the live site.

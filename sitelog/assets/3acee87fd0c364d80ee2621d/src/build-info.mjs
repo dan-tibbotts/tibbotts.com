@@ -1,0 +1,2 @@
+// Generated once for this immutable artifact.
+export const buildInfo=Object.freeze({"frontendVersion":"0.1.0","gitCommit":"d706365a0cc2","builtAtUtc":"2026-11-13T18:52:03.229Z","environment":"github-pages","deploymentTarget":"github-pages","dirty":true,"buildId":"3acee87fd0c364d80ee2621d"});

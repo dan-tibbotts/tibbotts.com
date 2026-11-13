@@ -1,11 +1,7 @@
+import { services } from "./services.mjs";
 import { backupView, backupAction } from "./backup-ui.mjs";
-import { waitForBackupWork } from "./backup-service.mjs";
 import { financeView, financeAction } from "./finance-ui.mjs";
-import {
-  jobPhotoMarkup,
-  hydrateJobPhotos,
-  setJobCover,
-} from "./job-photos.mjs";
+import { jobPhotoMarkup, hydrateJobPhotos } from "./job-photos.mjs";
 import {
   projectView,
   projectAction,
@@ -25,9 +21,6 @@ import { openScheduleForm } from "./schedule-form.mjs";
 import { WEEKDAYS } from "./work-schedules.mjs";
 import { rankNearbyJobs } from "./nearby-jobs.mjs";
 import * as store from "./store.mjs";
-import * as auth from "./mock-auth.mjs";
-import * as api from "./mock-api.mjs";
-import { seed } from "./seed.mjs";
 import { SyncEngine } from "./sync.mjs";
 import {
   mergeRecords,
@@ -61,6 +54,12 @@ import {
   timeSubtitle,
   timeTable,
 } from "./ui.mjs";
+
+const setJobCover = (...args) => services.jobs.setJobCover(...args);
+const auth = services.auth;
+const api = services.workspace;
+const waitForBackupWork = (...args) =>
+  services.backup.waitForBackupWork(...args);
 
 const root = document.querySelector("#app"),
   dialog = document.querySelector("#dialog");
@@ -1324,6 +1323,20 @@ async function doSwitch(id) {
   void sync.run();
 }
 async function action(value, event) {
+  const demoAction = value.split(":")[0];
+  if (
+    !services.capabilities.demo &&
+    [
+      "persona",
+      "confirm-persona",
+      "expire-session",
+      "renew-session",
+      "simulate-conflict",
+      "reset",
+      "confirm-reset",
+    ].includes(demoAction)
+  )
+    throw new Error("This action is only available in the mockup.");
   const split = value.indexOf(":"),
     name = split < 0 ? value : value.slice(0, split),
     id = split < 0 ? "" : value.slice(split + 1);
@@ -1711,8 +1724,7 @@ async function action(value, event) {
       await sync.setPaused(true);
       while (sync.busy)
         await new Promise((resolve) => setTimeout(resolve, 100));
-      await store.reset();
-      await seed();
+      await services.resetDemo();
       await sync.init();
       closeModal();
       state.page = "today";
@@ -1845,7 +1857,6 @@ async function start() {
   window.visualViewport?.addEventListener("resize", sizeDialog);
   try {
     await store.openStore();
-    await seed();
     await recoverQueue();
     await sync.init();
     if ("BroadcastChannel" in window) {

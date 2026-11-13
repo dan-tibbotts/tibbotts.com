@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {send,evaluate,waitFor,click,fill,errors,close} from './cdp.mjs';
 const origin=process.env.SITELOG_TEST_ORIGIN||'http://localhost:4173';let count=0;
 const check=(v,label)=>{assert.ok(v,label);count++;console.log('PASS A4:',label);};
-const run=body=>evaluate(`(async()=>{const root=document.querySelector('script[type=module][src]').src.replace(/app.mjs$/,'');const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),c=await import(root+'commercial-service.mjs'),q=await import(root+'quote-service.mjs'),j=await import(root+'job-authorisation.mjs'),d=await import(root+'domain.mjs');${body}})()`);
+const run=body=>evaluate(`(async()=>{const root=new URL('./',document.querySelector('script[type=module][src]').src).href;const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),c=await import(root+'commercial-service.mjs'),q=await import(root+'quote-service.mjs'),j=await import(root+'job-authorisation.mjs'),d=await import(root+'domain.mjs');${body}})()`);
 async function action(name){await waitFor(`document.querySelector('[data-action="${name}"]')`);await click(`[data-action="${name}"]`);}
 await send('Page.navigate',{url:origin+'/sitelog/'});await waitFor("document.querySelector('.current-job')");
 await run("await s.reset();await(await import(root+'seed.mjs')).seed();await a.switchPersona('morgan');await s.setMeta('paused',true);");await send('Page.reload');await waitFor("document.querySelector('.current-job')");

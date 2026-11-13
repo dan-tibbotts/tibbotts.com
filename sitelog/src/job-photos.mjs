@@ -1,10 +1,5 @@
 import { get } from "./store.mjs";
 import { escape as e, siteSketch } from "./ui.mjs";
-import {
-  commercialMutation as mutate,
-  recordCommercialChange as commit,
-} from "./commercial-transactions.mjs";
-import { assertRevision } from "./domain.mjs";
 export function jobPhotoMarkup(job) {
   return `<img data-job-photo="${e(job.id)}" alt="Site progress at ${e(job.name)}" hidden>${siteSketch(job.color)}`;
 }
@@ -43,23 +38,4 @@ export async function hydrateJobPhotos(scope, jobs, media, keepUrl) {
       break;
     }
   }
-}
-export function setJobCover(jobId, mediaId, { expectedRevision } = {}) {
-  return mutate(["jobs", "media"], (data, s, actor) => {
-    const job = data.jobs.find((j) => j.id === jobId),
-      photo = data.media.find(
-        (m) => m.id === mediaId && m.jobId === jobId && m.kind === "photo",
-      );
-    if (!job || !photo)
-      throw new Error("Choose an accepted photo on this job.");
-    assertRevision(expectedRevision, job.revision || 0);
-    return commit(
-      "jobs",
-      { ...job, coverMediaId: photo.id },
-      job,
-      s,
-      actor,
-      "cover-selected",
-    );
-  });
 }

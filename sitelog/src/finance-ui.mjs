@@ -1,14 +1,19 @@
+import { services } from "./services.mjs";
 import { escape as e, button, empty } from "./ui.mjs";
 import { uuid, workDate, hours, csvCell } from "./domain.mjs";
 import { money } from "./money.mjs";
 import { estimateLines, jobCostSummary } from "./costing-domain.mjs";
-import {
-  costingWorkspace,
-  saveJobCostRate,
-  saveCostCommitment,
-} from "./costing-service.mjs";
-import { saveVariation, variationAction } from "./variation-service.mjs";
 import { approvedSupplier } from "./pricebook.mjs";
+
+const costingWorkspace = (...args) =>
+  services.costing.costingWorkspace(...args);
+const saveJobCostRate = (...args) => services.costing.saveJobCostRate(...args);
+const saveCostCommitment = (...args) =>
+  services.costing.saveCostCommitment(...args);
+const saveVariation = (...args) => services.variations.saveVariation(...args);
+const variationAction = (...args) =>
+  services.variations.variationAction(...args);
+
 const field = (label, name, value = "", type = "text", extra = "") =>
   `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${e(value ?? "")}" ${extra}></label>`;
 const area = (label, name, value = "", required = false) =>

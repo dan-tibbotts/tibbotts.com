@@ -40,3 +40,9 @@ No current ambiguity requires user input to finish A0. Resolve the pricing/expor
 - Backups deliberately cover this browser’s synthetic workspace, including retained private drafts/files, but never restore sign-in sessions or OTPs. Checksums provide integrity only. Import adds missing IDs and skips existing ones; no destructive replacement workflow is inferred. Rehearsal removes only a new temporary database it created.
 - Normal office workspace reads now exclude another identity’s unsent drafts/queue. Commercial document categories remain office-only even for an old incorrectly shared record. Production still needs trusted service enforcement and separately reviewed backup/access policy.
 - Local A8 verification is separate from real staging/production/device acceptance. No external deployment, DNS, email, supplier order or authority booking is authorised/performed by this implementation. XLSX and formal contract/payment/legal automation remain explicit follow-ups rather than fake completed features.
+
+## GitHub Pages strategy decision — 14 November 2026
+
+- Preserve the user's commit-to-main Pages workflow; generate and commit only SiteLog hosting files. No new Actions/Pages/root infrastructure changes. Source templates are separate from compiled entries so repeated builds cannot consume their own generated metadata.
+- Use an explicit immutable build-time target, not hostname/query/storage detection. GitHubPages chooses the local mock service class; Production chooses an independent fail-closed extension point. Real backend/auth/storage work remains required before Production can run. The target is not a security boundary; future server permissions remain mandatory.
+- Shared offline domain/storage/queue code is retained. Mock seed/data and production cache namespaces are separate; never migrate demo outbox entries automatically into live service requests. The mock sync lock remains compatible with older mock tabs.

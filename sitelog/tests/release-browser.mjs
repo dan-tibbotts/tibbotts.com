@@ -13,7 +13,7 @@ const check = (v, label) => {
 };
 const run = (body) =>
   evaluate(
-    `(async()=>{const root=document.querySelector('script[type=module][src]').src.replace(/app.mjs$/,'');const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs');${body}})()`,
+    `(async()=>{const root=new URL('./',document.querySelector('script[type=module][src]').src).href;const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs');${body}})()`,
   );
 async function action(value) {
   await waitFor(`document.querySelector('[data-action="${value}"]')`);

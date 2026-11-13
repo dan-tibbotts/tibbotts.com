@@ -75,6 +75,8 @@ try {
     "project-record-browser.mjs",
     "costing-browser.mjs",
     "hardening-browser.mjs",
+    "startup-browser.mjs",
+    "deployment-browser.mjs",
   ]) {
     const test = spawn(
       process.execPath,

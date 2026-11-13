@@ -12,7 +12,7 @@ const check = (v, label) => {
 };
 const run = (body) =>
   evaluate(
-    `(async()=>{const root=document.querySelector('script[type=module][src]').src.replace(/app.mjs$/,'');const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),r=await import(root+'project-record-service.mjs'),f=await import(root+'document-service.mjs'),d=await import(root+'domain.mjs');${body}})()`,
+    `(async()=>{const root=new URL('./',document.querySelector('script[type=module][src]').src).href;const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),r=await import(root+'project-record-service.mjs'),f=await import(root+'document-service.mjs'),d=await import(root+'domain.mjs');${body}})()`,
   );
 async function action(name) {
   await waitFor(`document.querySelector('[data-action="${name}"]')`);

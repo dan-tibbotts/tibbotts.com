@@ -1,7 +1,10 @@
+import { services } from "./services.mjs";
 import { all, put, meta, setMeta } from "./store.mjs";
-import { currentUser } from "./mock-auth.mjs";
-import { applyOperation } from "./mock-api.mjs";
 import { mediaAllowed } from "./domain.mjs";
+
+const currentUser = (...args) => services.auth.currentUser(...args);
+const applyOperation = (...args) => services.workspace.applyOperation(...args);
+
 export class SyncEngine {
   constructor(onChange) {
     this.onChange = onChange;
@@ -106,7 +109,12 @@ export class SyncEngine {
     };
     try {
       if (navigator.locks)
-        await navigator.locks.request("sitelog-mock-sync", work);
+        await navigator.locks.request(
+          services.target === "github-pages"
+            ? "sitelog-mock-sync"
+            : "sitelog-production-sync",
+          work,
+        );
       else await work();
     } finally {
       this.busy = false;

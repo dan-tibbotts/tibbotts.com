@@ -27,6 +27,7 @@ test("release metadata has an explicit public allowlist and stable artifact iden
       "environment",
       "dirty",
       "buildId",
+      "deploymentTarget",
     ].sort(),
   );
   assert.equal(a.gitCommit, "a".repeat(12));
@@ -51,7 +52,13 @@ test("unsafe metadata and nonsemantic versions are rejected", () => {
     assert.throws(() => publicBuildInfo({ ...valid, ...change }));
 });
 test("each environment is labelled without changing the source version", () => {
-  for (const environment of ["local", "preview", "staging", "production"])
+  for (const environment of [
+    "local",
+    "github-pages",
+    "preview",
+    "staging",
+    "production",
+  ])
     assert.equal(
       publicBuildInfo({ ...valid, environment }).environment,
       environment,
@@ -77,7 +84,7 @@ test("build binds HTML, native modules, CSS, service worker and manifest to one 
       );
     assert.ok(
       html.includes(`v${pkg.version}`) &&
-        html.includes(result.base + "src/app.mjs") &&
+        html.includes(result.base + "src/boot.mjs") &&
         html.includes(result.base + "styles.css"),
     );
     assert.ok(

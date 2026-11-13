@@ -5,12 +5,21 @@ import {
   STORES,
   upgradeDatabase,
 } from "./migrations.mjs";
-let connection, opening;
+let connection,
+  opening,
+  databaseName = DATABASE_NAME;
+export function configureStore(name) {
+  if (!["sitelog-mockup-v1", "sitelog-production-cache-v1"].includes(name))
+    throw new Error("Unsupported client database namespace.");
+  if ((connection || opening) && name !== databaseName)
+    throw new Error("Configure storage before opening a workspace.");
+  databaseName = name;
+}
 export async function openStore() {
   if (connection) return connection;
   if (opening) return opening;
   opening = openCompatibleDatabase({
-    name: DATABASE_NAME,
+    name: databaseName,
     version: DATABASE_VERSION,
     upgrade: upgradeDatabase,
     requiredStores: STORES,

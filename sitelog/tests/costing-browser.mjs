@@ -9,7 +9,7 @@ const check = (v, label) => {
 };
 const run = (body) =>
   evaluate(
-    `(async()=>{const root=document.querySelector('script[type=module][src]').src.replace(/app.mjs$/,'');const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),c=await import(root+'commercial-service.mjs'),q=await import(root+'quote-service.mjs'),j=await import(root+'job-authorisation.mjs'),v=await import(root+'variation-service.mjs'),f=await import(root+'costing-service.mjs'),p=await import(root+'purchasing-service.mjs'),d=await import(root+'domain.mjs');${body}})()`,
+    `(async()=>{const root=new URL('./',document.querySelector('script[type=module][src]').src).href;const s=await import(root+'store.mjs'),a=await import(root+'mock-auth.mjs'),c=await import(root+'commercial-service.mjs'),q=await import(root+'quote-service.mjs'),j=await import(root+'job-authorisation.mjs'),v=await import(root+'variation-service.mjs'),f=await import(root+'costing-service.mjs'),p=await import(root+'purchasing-service.mjs'),d=await import(root+'domain.mjs');${body}})()`,
   );
 async function action(name) {
   await waitFor(`document.querySelector('[data-action="${name}"]')`);

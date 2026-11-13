@@ -81,3 +81,7 @@ A1 now tests failed candidate installation, quota/draft-write refusal, unsaved m
 The update protocol awaits worker/quote draft and backup writes before activation; it never clears user records. Local preview retains immutable release directories for rollback. Re-selecting a prior verified artifact through the local active pointer offers the same explicit safe update path; browser tests verify the rolled-back frontend reports its own identity and keeps local work. This is static artifact rollback, not a database downgrade. No live production route or cache was changed.
 
 Real installed iOS/Android behaviour and transition from an unknown legacy client still require manual device/profile review. Unknown legacy tabs must be finished and closed before the new protocol can safely activate; no forced reload is claimed.
+
+## GitHub Pages build handoff
+
+`build:pages` emits a `github-pages` label and `deploymentTarget: github-pages`, with the public immutable service selector in the asset tree. `Production` is a separate adapter selection, not just a label on the mock. The target/config is included in the source fingerprint and build ID. Track the generated Pages entries/assets with your source commit; run `check:pages` to catch stale/incomplete output. Build from `templates/`, never regenerate from already compiled root HTML/SW. Retain published old asset folders for installed clients. The complete workflow is in `DEPLOYMENT_STRATEGIES.md`.

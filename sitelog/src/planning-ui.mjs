@@ -1,17 +1,21 @@
+import { services } from "./services.mjs";
 import { orderHTML } from "./purchasing-export.mjs";
 import { escape as e, button, empty } from "./ui.mjs";
 import { workDate, shiftDate, prettyDate, uuid } from "./domain.mjs";
 import { money } from "./money.mjs";
 import { approvedSupplier } from "./pricebook.mjs";
 import { receivedQuantity, planningWarnings } from "./planning-domain.mjs";
-import { planningWorkspace, saveActivity } from "./planning-service.mjs";
-import {
-  addRequirement,
-  cancelRequirement,
-  prepareOrder,
-  orderDecision,
-  recordReceipt,
-} from "./purchasing-service.mjs";
+
+const planningWorkspace = (...args) =>
+  services.planning.planningWorkspace(...args);
+const saveActivity = (...args) => services.planning.saveActivity(...args);
+const addRequirement = (...args) => services.purchasing.addRequirement(...args);
+const cancelRequirement = (...args) =>
+  services.purchasing.cancelRequirement(...args);
+const prepareOrder = (...args) => services.purchasing.prepareOrder(...args);
+const orderDecision = (...args) => services.purchasing.orderDecision(...args);
+const recordReceipt = (...args) => services.purchasing.recordReceipt(...args);
+
 const field = (label, name, value = "", type = "text", extra = "") =>
   `<label class="field"><span>${label}</span><input name="${name}" type="${type}" value="${e(value ?? "")}" ${extra}></label>`;
 const option = (id, label, value) =>

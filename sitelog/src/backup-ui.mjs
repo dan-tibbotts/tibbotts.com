@@ -1,11 +1,13 @@
+import { services } from "./services.mjs";
 import { escape as e, button } from "./ui.mjs";
 import { workDate } from "./domain.mjs";
-import {
-  createBackup,
-  inspectBackup,
-  rehearseRestore,
-  importMissingRecords,
-} from "./backup-service.mjs";
+
+const createBackup = (...args) => services.backup.createBackup(...args);
+const inspectBackup = (...args) => services.backup.inspectBackup(...args);
+const rehearseRestore = (...args) => services.backup.rehearseRestore(...args);
+const importMissingRecords = (...args) =>
+  services.backup.importMissingRecords(...args);
+
 let reviewed = null;
 export function backupView() {
   return `<section class="panel"><div class="panel-header"><div><h2>Local backup & restore checks</h2><p class="sub">Records, drafts, queues and private file bytes stay under your control.</p></div></div><p>Download a complete local archive before clearing browser data. Archives contain private workspace records and files. Keep them in a trusted location. Sessions and one-time sign-in codes are excluded.</p><div class="quote-actions">${button("Download local backup", "backup-export", "button primary", "download")}${button("Review backup / restore", "backup-review", "button", "history")}</div><p class="form-help">Review verifies checksums. A restore rehearsal reads back records and original bytes in a disposable database. Import adds missing IDs only and leaves existing records unchanged; it does not replace the current workspace or switch accounts. This prototype archive is limited to 256 MB.</p></section>`;
