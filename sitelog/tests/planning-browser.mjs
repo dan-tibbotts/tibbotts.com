@@ -22,7 +22,7 @@ async function submitAndClose() {
   assert.deepEqual(invalid, []);
   await evaluate("document.querySelector('#dialog form').requestSubmit()");
   await waitFor(
-    "!document.querySelector('#dialog').open||document.querySelector('#dialog .form-error')?.textContent",
+    "!document.querySelector('#dialog').matches('.form-page, [open]')||document.querySelector('#dialog .form-error')?.textContent",
   );
   assert.equal(
     await evaluate(
@@ -140,7 +140,7 @@ await waitFor("document.body.textContent.includes('Drainage crew plan')");
 check(true, "office week schedule displays planned work");
 await action("plan-activity-new");
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=title]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=title]')",
 );
 await fill("[name=title]", "UI planned activity");
 await fill("[name=start]", "17:00");
@@ -161,7 +161,7 @@ check(
 );
 await action("plan-requirement-new");
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=quantity]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=quantity]')",
 );
 await fill("[name=jobId]", "harbour");
 await fill("#dialog [name=description]", "UI material requirement");
@@ -174,7 +174,7 @@ const uiRequirement = await run(
 check(!!uiRequirement, "office material form adds a typed job requirement");
 await action("plan-order-new:harbour");
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=requirementIds]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=requirementIds]')",
 );
 await evaluate(
   `document.querySelector('[name=requirementIds][value="${uiRequirement.id}"]').checked=true`,
@@ -195,14 +195,14 @@ check(
 await action("plan-order:" + uiOrder.id);
 await action("plan-order-issue:" + uiOrder.id);
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=reference]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=reference]')",
 );
 await fill("[name=reference]", "UI manual arrangement");
 await submitAndClose();
 await action("plan-order:" + uiOrder.id);
 await action("plan-receipt:" + uiOrder.id);
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=date]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=date]')",
 );
 await fill("[name=reference]", "UI partial delivery note");
 await fill(`[name="qty:${uiOrder.lines[0].id}"]`, "0.4");

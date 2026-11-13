@@ -175,7 +175,7 @@ await action("quote-remove-clause");
 await evaluate("window.confirm=window.savedConfirm");
 await fill("[name=templateLines]", "UI replacement demonstration term");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 await action("quote-return");
 await action("quote-new");
 await waitFor("document.querySelector('#quote-editor')");

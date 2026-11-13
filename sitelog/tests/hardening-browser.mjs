@@ -84,7 +84,7 @@ try {
   await action("office-tab:backup");
   await action("backup-review");
   await waitFor(
-    "document.querySelector('#dialog').open&&document.querySelector('[name=archive]')",
+    "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=archive]')",
   );
   const archivePath = join(folder, "test-backup.json");
   await writeFile(

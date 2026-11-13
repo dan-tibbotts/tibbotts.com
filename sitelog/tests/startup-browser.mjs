@@ -96,11 +96,11 @@ try {
   await waitFor("navigator.serviceWorker.controller");
   await click("[data-action=note]");
   await waitFor(
-    "document.querySelector('#dialog').open&&document.querySelector('textarea')",
+    "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('textarea')",
   );
   await fill("textarea", "Retained on a static host");
   await evaluate("document.querySelector('#dialog form').requestSubmit()");
-  await waitFor("!document.querySelector('#dialog').open");
+  await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
   await send("Network.enable");
   await send("Network.emulateNetworkConditions", {
     offline: true,

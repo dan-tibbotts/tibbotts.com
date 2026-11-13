@@ -1,3 +1,4 @@
+import { jobClient } from "./job-labels.mjs";
 import { workerDocumentAllowed } from "./document-domain.mjs";
 import { canAccessJob } from "./domain.mjs";
 export function transactionUser(records) {
@@ -131,7 +132,7 @@ export function projectWorkspace(data, user) {
     users: data.users.map((u) =>
       pick(u, ["id", "displayName", "initials", "role", "active"]),
     ),
-    jobs: jobs.map((j) => pick(j, JOB_FIELDS)),
+    jobs: jobs.map((j) => ({ ...pick(j, JOB_FIELDS), clientName: jobClient(j, data) })),
     timesheets,
     notes: data.notes
       .filter((n) => jobIds.has(n.jobId))

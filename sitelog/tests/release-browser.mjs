@@ -139,7 +139,7 @@ check(
 await click("[data-release=close]");
 await action("note");
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('textarea')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('textarea')",
 );
 await evaluate(
   "window.originalDraftTransaction=IDBDatabase.prototype.transaction;IDBDatabase.prototype.transaction=function(names,mode,...rest){if(mode==='readwrite'&&(typeof names==='string'?names==='drafts':[...names].includes('drafts')))throw new DOMException('Synthetic quota failure','QuotaExceededError');return window.originalDraftTransaction.call(this,names,mode,...rest)}",
@@ -155,7 +155,7 @@ try {
   );
 }
 await action("close");
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 await click("#update-banner [data-release=apply]");
 await waitFor(
   "document.querySelector('#toast').textContent.includes('A draft could not be saved')",
@@ -168,7 +168,7 @@ check(
 );
 await action("note");
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('textarea')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('textarea')",
 );
 await fill("textarea", "Keep draft across build update");
 await waitFor(
@@ -211,7 +211,7 @@ check(
 await evaluate(
   "window.otherReleaseTab.document.querySelector('[data-action=close]').click()",
 );
-await waitFor("!window.otherReleaseTab.document.querySelector('#dialog').open");
+await waitFor("!window.otherReleaseTab.document.querySelector('#dialog').matches('.form-page, [open]')");
 await send("Page.bringToFront");
 await waitFor("!document.querySelector('#app').hasAttribute('inert')");
 await click("#update-banner [data-release=apply]");

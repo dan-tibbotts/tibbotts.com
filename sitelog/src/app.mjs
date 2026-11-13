@@ -1,3 +1,4 @@
+import { enhanceJobSelects, jobClient, jobSearchText } from "./job-combobox.mjs";
 import { services } from "./services.mjs";
 import { backupView, backupAction } from "./backup-ui.mjs";
 import { financeView, financeAction } from "./finance-ui.mjs";
@@ -61,8 +62,9 @@ const api = services.workspace;
 const waitForBackupWork = (...args) =>
   services.backup.waitForBackupWork(...args);
 
-const root = document.querySelector("#app"),
-  dialog = document.querySelector("#dialog");
+const root = document.querySelector("#app");
+const modalDialog = document.querySelector("#dialog");
+let dialog = modalDialog, formPage = null;
 const state = {
   page: "today",
   officeTab: "overview",
@@ -97,7 +99,7 @@ const sync = new SyncEngine(() => refresh());
 const releases = new ReleaseManager({
   notify: (message) => toast(message),
   prepare: async () => {
-    if (dialog.open && dialog.querySelector("form"))
+    if ((formPage || dialog.open) && dialog.querySelector("form"))
       throw new Error(
         "Finish and close the current form before updating. Your saved drafts stay on this device.",
       );
@@ -137,6 +139,16 @@ const navItems = [
   ["jobs", "job", "My jobs"],
   ["media", "photo", "Photos & videos"],
 ];
+const officeGroups = [
+  ["Office", [["overview", "Job overview", "job"]]],
+  ["Commercial", [["quotes", "Quotes", "note"], ["pricebook", "Price book", "briefcase"], ["contacts", "Contacts & approvals", "people"], ["variations", "Variations", "note"], ["costing", "Job costing", "briefcase"], ["terms", "Terms", "note"]]],
+  ["Project delivery", [["planning", "Schedule", "calendar"], ["materials", "Materials & orders", "job"], ["inspections", "Inspections", "check"], ["documents", "Documents", "note"], ["decisions", "Decisions", "note"], ["timeline", "Site progress", "history"]]],
+  ["Team", [["timesheets", "Timesheets", "clock"], ["people", "People & invites", "people"], ["hours", "Usual hours", "calendar"]]],
+  ["Workspace", [["backup", "Backup & restore", "download"]]],
+];
+function officeNavigation() {
+  return officeGroups.map(([label, items]) => `<div class="office-nav-group"><p class="nav-category">${label}</p>${items.map(([id, title, glyph]) => `<button class="nav-item ${state.page === "office" && state.officeTab === id ? "active" : ""}" data-action="office-tab:${id}" ${state.page === "office" && state.officeTab === id ? 'aria-current="page"' : ""}>${icon(glyph)}<span>${title}</span></button>`).join("")}</div>`).join("");
+}
 const jobName = (id) =>
   state.data.jobs.find((j) => j.id === id)?.name || "Unknown job";
 const userName = (id) =>
@@ -177,6 +189,7 @@ function notify() {
   channel?.postMessage("changed");
 }
 function navigate(page) {
+  closeModal();
   state.page = page;
   state.query = "";
   state.jobFilter = "all";
@@ -205,6 +218,12 @@ function refresh() {
   return refreshing;
 }
 function render() {
+  if (formPage && formPage.dataset.owner !== state.user?.id) {
+    closeModal();
+    return;
+  }
+  // Background sync must not detach an active editor or interrupt typing.
+  if (formPage?.isConnected && state.user) return;
   for (const url of state.galleryUrls) URL.revokeObjectURL(url);
   state.galleryUrls = [];
   if (!state.user) {
@@ -224,7 +243,7 @@ function render() {
         `<button class="nav-item ${state.page === id ? "active" : ""}" data-action="nav:${id}" ${state.page === id ? 'aria-current="page"' : ""}>${icon(ic)}<span>${label}</span></button>`,
     )
     .join("");
-  root.innerHTML = `<aside class="sidebar"><a class="brand" href="/sitelog/" aria-label="SiteLog home"><span class="brand-mark">s<span>l</span></span>SiteLog<em>DEMO</em></a><p class="workspace-label">Your workspace</p><nav class="navigation" aria-label="Main navigation">${links}${state.user.role === "office_admin" ? `<div class="nav-divider"></div><button class="nav-item ${state.page === "office" ? "active" : ""}" data-action="nav:office">${icon("briefcase")}<span>Office admin</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="local-card"><div class="mini-label">${icon("leaf")} A little less paperwork.</div><p>More time on site.<br>Everything in its place.</p>${button("About this mockup", "about", "text-button", "arrow")}</div><div class="sidebar-user"><span class="avatar">${e(state.user.initials)}</span><div><strong>${e(state.user.displayName)}</strong><small>${state.user.role === "office_admin" ? "Office administrator" : "Site team"}</small></div><button class="icon-button" data-action="settings" aria-label="Account and settings">${icon("settings")}</button></div></div></aside><div class="main-shell"><header class="topbar"><a class="brand mobile-brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a>${versionLabel()}<div class="breadcrumb">Workspace ${icon("chevron")}<strong>${names[state.page]}</strong></div><div class="top-actions"><span class="network-label ${offline ? "offline" : ""}" title="${offline ? "Offline mode" : "Local demo connected"}"><i></i>${offline ? "Offline mode" : "Local workspace"}</span><button class="queue-button" data-action="queue" aria-label="Upload queue, ${mediaCount} media files pending. ${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile data only" : "Any network"}">${icon("upload")}<span>${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile only" : "Any network"}</span><b>${mediaCount}</b></button><button class="icon-button" data-action="settings" aria-label="Settings">${icon("settings")}</button></div></header><div class="demo-strip"><span>LOCAL CONCEPT · Fictional jobs · Data stays in this browser</span><span class="desktop-only">&nbsp;·&nbsp;</span><button data-action="settings">Switch demo role</button></div><main class="content" id="main-content">${state.storageWarning ? '<div class="notice warning">Device storage is almost full. Protect unsynced work and download important files before clearing any data.</div>' : ""}${pageContent()}<footer class="page-footer"><span>SiteLog <span class="desktop-only">— Simple site records, less paperwork.</span></span><span>${count ? `${count} record${count === 1 ? "" : "s"} saved locally · ` : ""}Local mockup · v${e(buildInfo.frontendVersion)}</span></footer></main></div><nav class="bottom-nav" aria-label="Mobile navigation">${navItems
+  root.innerHTML = `<aside class="sidebar"><a class="brand" href="/sitelog/" aria-label="SiteLog home"><span class="brand-mark">s<span>l</span></span>SiteLog<em>DEMO</em></a><p class="workspace-label">Your workspace</p><nav class="navigation" aria-label="Main navigation">${links}${state.user.role === "office_admin" ? officeNavigation() : ""}</nav><div class="sidebar-bottom"><div class="local-card"><div class="mini-label">${icon("leaf")} A little less paperwork.</div><p>More time on site.<br>Everything in its place.</p>${button("About this mockup", "about", "text-button", "arrow")}</div><div class="sidebar-user"><span class="avatar">${e(state.user.initials)}</span><div><strong>${e(state.user.displayName)}</strong><small>${state.user.role === "office_admin" ? "Office administrator" : "Site team"}</small></div><button class="icon-button" data-action="settings" aria-label="Account and settings">${icon("settings")}</button></div></div></aside><div class="main-shell"><header class="topbar"><a class="brand mobile-brand" href="/sitelog/"><span class="brand-mark">s<span>l</span></span>SiteLog</a>${versionLabel()}<div class="breadcrumb">Workspace ${icon("chevron")}<strong>${formPage ? "Data entry" : names[state.page]}</strong></div><div class="top-actions"><span class="network-label ${offline ? "offline" : ""}" title="${offline ? "Offline mode" : "Local demo connected"}"><i></i>${offline ? "Offline mode" : "Local workspace"}</span><button class="queue-button" data-action="queue" aria-label="Upload queue, ${mediaCount} media files pending. ${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile data only" : "Any network"}">${icon("upload")}<span>${policy === "wifi" ? "Wi-Fi only" : policy === "mobile" ? "Mobile only" : "Any network"}</span><b>${mediaCount}</b></button><button class="icon-button" data-action="settings" aria-label="Settings">${icon("settings")}</button></div></header><div class="demo-strip"><span>LOCAL CONCEPT · Fictional jobs · Data stays in this browser</span><span class="desktop-only">&nbsp;·&nbsp;</span><button data-action="settings">Switch demo role</button></div><main class="content" id="main-content">${state.storageWarning ? '<div class="notice warning">Device storage is almost full. Protect unsynced work and download important files before clearing any data.</div>' : ""}${formPage ? '<div id="form-page-slot"></div>' : pageContent()}<footer class="page-footer"><span>SiteLog <span class="desktop-only">— Simple site records, less paperwork.</span></span><span>${count ? `${count} record${count === 1 ? "" : "s"} saved locally · ` : ""}Local mockup · v${e(buildInfo.frontendVersion)}</span></footer></main></div><nav class="bottom-nav" aria-label="Mobile navigation">${navItems
     .slice(0, 3)
     .map(
       ([id, ic, label]) =>
@@ -233,6 +252,8 @@ function render() {
     .join(
       "",
     )}<button class="nav-item ${state.page === (state.user.role === "office_admin" ? "office" : "media") ? "active" : ""}" data-action="nav:${state.user.role === "office_admin" ? "office" : "media"}">${icon(state.user.role === "office_admin" ? "briefcase" : "photo")}<span>${state.user.role === "office_admin" ? "Office" : "Media"}</span></button></nav>`;
+  if (formPage) root.querySelector("#form-page-slot").append(formPage);
+  enhanceJobSelects(root, state.data);
 }
 function heading(eyebrow, title, description, action = "") {
   return `<div class="page-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p class="description">${description}</p></div>${action || `<div class="date-chip">${icon("calendar")}${prettyDate(workDate(), { weekday: "short", year: "numeric" })}</div>`}</div>`;
@@ -358,11 +379,11 @@ function jobsPage() {
   const jobs = assignedJobs().filter(
     (j) =>
       (state.jobStatus === "all" || j.status === state.jobStatus) &&
-      `${j.name} ${j.address}`
+      jobSearchText(j, state.data)
         .toLowerCase()
         .includes(state.query.toLowerCase()),
   );
-  return `${heading("Know where you’re headed", state.user.role === "office_admin" ? "Job overview" : "My jobs", "Your sites, instructions and records. Ready when you are.", state.user.role === "office_admin" ? button("New job", "new-job", "button primary", "plus") : button("Find nearby", "nearby", "button", "pin"))}<div class="filter-bar"><label class="search-field">${icon("search")}<span class="sr-only">Search jobs by name or address</span><input id="job-search" type="search" placeholder="Search jobs or locations…" value="${e(state.query)}" data-filter="query"></label><label><span class="sr-only">Job status</span><select data-filter="job-status"><option value="active" ${state.jobStatus === "active" ? "selected" : ""}>Active jobs</option><option value="completed" ${state.jobStatus === "completed" ? "selected" : ""}>Completed jobs</option><option value="all" ${state.jobStatus === "all" ? "selected" : ""}>All jobs</option></select></label></div><div class="job-grid">${jobs.map((job) => `<article class="job-card"><div class="site-visual">${jobPhotoMarkup(job)}</div><div class="job-card-body"><p class="job-card-code">${e(job.code)}</p><h2>${e(job.name)}</h2><p class="address">${icon("pin")} ${e(job.address)}</p><div class="job-stage"><span>${e(job.stage)}</span><span class="pill ${e(job.status)}">${job.status === "completed" ? "Complete" : "In progress"}</span></div><div class="job-card-actions">${button("View job", `job:${job.id}`, "button", "arrow")}${state.user.role === "office_admin" ? button("Edit", `edit-job:${job.id}`, "text-button", "edit") : job.status === "active" ? button(state.currentJobId === job.id ? "Current job" : "Select job", `select-job:${job.id}`, "text-button", state.currentJobId === job.id ? "check" : "plus") : ""}</div></div></article>`).join("")}</div>${!jobs.length ? empty("No matching jobs", "Try another name or location, or ask the office for an assignment.", "job") : ""}`;
+  return `${heading("Know where you’re headed", state.user.role === "office_admin" ? "Job overview" : "My jobs", "Your sites, instructions and records. Ready when you are.", state.user.role === "office_admin" ? button("New job", "new-job", "button primary", "plus") : button("Find nearby", "nearby", "button", "pin"))}<div class="filter-bar"><label class="search-field">${icon("search")}<span class="sr-only">Search jobs by name or address</span><select data-job-search="true"><option value=""></option>${jobs.map((job) => `<option value="${e(job.id)}">${e(job.name)}</option>`).join("")}</select></label><label><span class="sr-only">Job status</span><select data-filter="job-status"><option value="active" ${state.jobStatus === "active" ? "selected" : ""}>Active jobs</option><option value="completed" ${state.jobStatus === "completed" ? "selected" : ""}>Completed jobs</option><option value="all" ${state.jobStatus === "all" ? "selected" : ""}>All jobs</option></select></label></div><div class="job-grid">${jobs.map((job) => `<article class="job-card"><div class="site-visual">${jobPhotoMarkup(job)}</div><div class="job-card-body"><p class="job-card-code">${e(job.code)}</p><h2>${e(job.name)}</h2><p class="job-client">${e(jobClient(job, state.data))}</p><p class="address">${icon("pin")} ${e(job.address)}</p><div class="job-stage"><span>${e(job.stage)}</span><span class="pill ${e(job.status)}">${job.status === "completed" ? "Complete" : "In progress"}</span></div><div class="job-card-actions">${button("View job", `job:${job.id}`, "button", "arrow")}${state.user.role === "office_admin" ? button("Edit", `edit-job:${job.id}`, "text-button", "edit") : job.status === "active" ? button(state.currentJobId === job.id ? "Current job" : "Select job", `select-job:${job.id}`, "text-button", state.currentJobId === job.id ? "check" : "plus") : ""}</div></div></article>`).join("")}</div>${!jobs.length ? empty("No matching jobs", "Try another name or location, or ask the office for an assignment.", "job") : ""}`;
 }
 function mediaPage() {
   const media = allMedia()
@@ -376,35 +397,8 @@ function officePage() {
   const jobs = state.data.jobs,
     acceptedTimes = state.data.timesheets,
     minutes = acceptedTimes.reduce((n, t) => n + entryMinutes(t), 0);
-  return `${heading("The bigger picture", "Office admin", "Less chasing paperwork. More clarity across your jobs.", button("New job", "new-job", "button primary", "plus"))}<div class="stats-grid"><div class="stat-card"><small>${icon("job")}Active jobs</small><strong>${jobs.filter((j) => j.status === "active").length}</strong><p>Across the demo workspace</p></div><div class="stat-card"><small>${icon("clock")}Recorded labour</small><strong>${hours(minutes)}</strong><p>Accepted demo time entries</p></div><div class="stat-card"><small>${icon("people")}Site team</small><strong>${state.data.users.filter((u) => u.role === "worker" && u.active).length}</strong><p>Active workers</p></div></div><div class="filter-bar"><div class="tabs" role="group" aria-label="Office sections">${[
-    ["overview", "Job overview"],
-    ["timesheets", "Timesheets"],
-    ["people", "People & invites"],
-    ["hours", "Usual hours"],
-    ["contacts", "Contacts & approvals"],
-    ["pricebook", "Price book"],
-    ["quotes", "Quotes"],
-    ["variations", "Variations"],
-    ["costing", "Job costing"],
-    ["backup", "Backup & restore"],
-    ["planning", "Schedule"],
-    ["inspections", "Inspections"],
-    ["documents", "Documents"],
-    ["decisions", "Decisions"],
-    ["materials", "Materials & orders"],
-    ["terms", "Terms"],
-    ["timeline", "Site progress"],
-  ]
-    .map(([id, label]) =>
-      button(
-        label,
-        `office-tab:${id}`,
-        `tab ${state.officeTab === id ? "active" : ""}`,
-      ),
-    )
-    .join(
-      "",
-    )}</div>${state.officeTab === "timesheets" ? button("Export CSV", "export", "button", "download") : ""}</div>${officeSection()}`;
+  const title = officeGroups.flatMap(([, items]) => items).find(([id]) => id === state.officeTab)?.[1] || "Office admin";
+  return `${heading("Office admin", state.officeTab === "overview" ? "Office admin" : title, "Less chasing paperwork. More clarity across your jobs.", button("New job", "new-job", "button primary", "plus"))}<details class="mobile-office-menu"><summary>Office menu</summary><nav aria-label="Office sections">${officeNavigation()}</nav></details>${state.officeTab === "overview" ? `<div class="stats-grid"><div class="stat-card"><small>Active jobs</small><strong>${jobs.filter((j) => j.status === "active").length}</strong></div><div class="stat-card"><small>Recorded labour</small><strong>${hours(minutes)}</strong></div></div>` : ""}${state.officeTab === "timesheets" ? button("Export CSV", "export", "button", "download") : ""}${officeSection()}`;
 }
 function officeSection() {
   if (state.officeTab === "backup") return backupView();
@@ -526,7 +520,19 @@ async function hydrateMedia() {
 }
 function modal(title, subtitle, content, onSubmit = null) {
   modalRefresh = null;
-  dialog.innerHTML = `<div class="dialog-head"><div><h2 id="dialog-title">${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ""}</div><button type="button" class="icon-button" data-action="close" aria-label="Close dialog">${icon("close")}</button></div><div class="dialog-content">${content}</div>`;
+  closeModal(false);
+  if (/<form[\s>]/i.test(content)) {
+    modalDialog.id = "modal-dialog";
+    formPage = document.createElement("section");
+    formPage.id = "dialog";
+    formPage.dataset.owner = state.user.id;
+    formPage.className = "form-page panel";
+    formPage.setAttribute("aria-labelledby", "dialog-title");
+    dialog = formPage;
+    render();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  dialog.innerHTML = `<div class="dialog-head"><div><h2 id="dialog-title">${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ""}</div><button type="button" class="icon-button" data-action="close" aria-label="${formPage ? "Back to previous page" : "Close dialog"}">${formPage ? "Back" : icon("close")}</button></div><div class="dialog-content">${content}</div>`;
   dialog.onsubmit = async (event) => {
     event.preventDefault();
     const form = event.target,
@@ -547,14 +553,26 @@ function modal(title, subtitle, content, onSubmit = null) {
     }
   };
   dialog.oninput = null;
-  if (!dialog.open) dialog.showModal();
+  enhanceJobSelects(dialog, state.data);
+  if (dialog === modalDialog && !dialog.open) dialog.showModal();
+  else dialog.querySelector("h2")?.setAttribute("tabindex", "-1");
+  dialog.querySelector("h2")?.focus();
 }
-function closeModal() {
+function closeModal(releaseUrls = true) {
   modalRefresh = null;
-  dialog.close();
+  modalDialog.close();
   dialog.oninput = null;
-  for (const url of state.urls) URL.revokeObjectURL(url);
-  state.urls = [];
+  if (formPage) {
+    formPage.remove();
+    formPage = null;
+    dialog = modalDialog;
+    modalDialog.id = "dialog";
+    render();
+  }
+  if (releaseUrls) {
+    for (const url of state.urls) URL.revokeObjectURL(url);
+    state.urls = [];
+  }
 }
 function formFooter(label = "Save on device", draft = false) {
   return `<p class="form-error" role="alert"></p><div class="form-footer">${draft ? '<span class="draft-status">Draft saves as you type</span>' : ""}<button type="button" class="button" data-action="close">${draft ? "Close" : "Cancel"}</button><button type="submit" class="button primary">${icon("check")}${label}</button></div>`;
@@ -848,32 +866,14 @@ async function mediaForm(kind = "photo", reference = null) {
 async function chooseJob() {
   modal(
     "Find my job",
-    "Search by job name or readable site location.",
-    `<label class="field"><span class="sr-only">Search jobs</span><input id="choose-search" type="search" placeholder="Search jobs or locations…" autocomplete="off"></label>${button("Find nearby jobs", "nearby", "button full", "pin")}<div id="choose-results" style="margin-top:13px"></div><p class="form-help" style="margin-top:16px">Location is optional and only used to suggest nearby assigned jobs. You choose the job.</p>`,
+    "Search by site name, address, job code or client.",
+    `<label class="field"><span>Job</span><select name="jobId"><option value="">Choose a job…</option>${jobOptions(state.currentJobId)}</select></label>${button("Find nearby jobs", "nearby", "button full", "pin")}`,
   );
-  const results = dialog.querySelector("#choose-results");
-  const draw = (query) => {
-    results.innerHTML =
-      assignedJobs()
-        .filter(
-          (j) =>
-            j.status === "active" &&
-            `${j.name} ${j.address}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-        )
-        .map(
-          (j) =>
-            `<button class="persona-button full" style="width:100%;margin-bottom:8px" data-action="select-job:${j.id}"><span class="job-icon">${icon("job")}</span><span><strong>${e(j.name)}</strong><small>${e(j.address)}</small></span>${j.id === state.currentJobId ? icon("check") : ""}</button>`,
-        )
-        .join("") ||
-      empty("No matching jobs", "Try a different name or address.", "search");
-  };
-  draw("");
-  dialog
-    .querySelector("#choose-search")
-    .addEventListener("input", (event) => draw(event.target.value));
+  dialog.querySelector('select[name="jobId"]').addEventListener("change", (event) => {
+    if (event.target.value) void action(`select-job:${event.target.value}`);
+  });
 }
+
 async function nearby() {
   modal(
     "Find nearby jobs",
@@ -1525,6 +1525,8 @@ async function action(value, event) {
       await refresh();
       break;
     case "office-tab":
+      closeModal();
+      state.page = "office";
       state.officeTab = id;
       await refresh();
       break;
@@ -1768,6 +1770,10 @@ dialog.addEventListener("click", (event) => {
   }
 });
 root.addEventListener("change", (event) => {
+  if (event.target.dataset.jobSearch) {
+    if (event.target.value) void jobDetail(event.target.value);
+    return;
+  }
   const key = event.target.dataset.filter;
   if (!key) return;
   if (key === "planning-date")

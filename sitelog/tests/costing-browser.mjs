@@ -22,7 +22,7 @@ async function submit() {
   assert.deepEqual(invalid, []);
   await evaluate("document.querySelector('#dialog form').requestSubmit()");
   await waitFor(
-    "!document.querySelector('#dialog').open||document.querySelector('#dialog .form-error')?.textContent",
+    "!document.querySelector('#dialog').matches('.form-page, [open]')||document.querySelector('#dialog .form-error')?.textContent",
   );
   assert.equal(
     await evaluate(
@@ -127,7 +127,7 @@ await action("close");
 await action("office-tab:variations");
 await action("finance-variation-new");
 await waitFor(
-  "document.querySelector('#variation-editor')&&document.querySelector('#dialog').open",
+  "document.querySelector('#variation-editor')&&document.querySelector('#dialog').matches('.form-page, [open]')",
 );
 await fill("#dialog [name=jobId]", fixture.job.id);
 await fill("#dialog [name=title]", "UI variation");
@@ -148,14 +148,14 @@ check(
 await action("finance-variation:" + ui.id);
 await action("finance-variation-submit:" + ui.id);
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=reference]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=reference]')",
 );
 await fill("#dialog [name=reference]", "UI submission record");
 await submit();
 await action("finance-variation:" + ui.id);
 await action("finance-variation-approve:" + ui.id);
 await waitFor(
-  "document.querySelector('#dialog').open&&document.querySelector('[name=person]')",
+  "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=person]')",
 );
 await fill("#dialog [name=reference]", "UI approval record");
 await fill("#dialog [name=person]", "Test client");

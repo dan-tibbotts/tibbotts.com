@@ -149,7 +149,7 @@ try {
   await waitFor("document.querySelector('[data-action=confirm-reset]')");
   await click("[data-action=confirm-reset]");
   await waitFor(
-    "document.querySelector('.current-job')&&!document.querySelector('#dialog').open",
+    "document.querySelector('.current-job')&&!document.querySelector('#dialog').matches('.form-page, [open]')",
   );
   check(
     true,

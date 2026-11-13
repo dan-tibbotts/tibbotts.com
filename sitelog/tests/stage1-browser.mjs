@@ -43,7 +43,7 @@ await waitFor("document.querySelector('.current-job')");
 await action("time");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 check(
   await evaluate(
@@ -160,7 +160,7 @@ await waitFor("document.querySelector('.current-job')");
 await action("time");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 check(
   await evaluate(
@@ -190,7 +190,7 @@ await waitFor("document.querySelector('[data-action^=\"resume-draft:\"]')");
 await click('[data-action^="resume-draft:"]');
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 check(
   await evaluate(
@@ -214,7 +214,7 @@ await action("nav:today");
 await action("time");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 check(
   await evaluate(
@@ -244,7 +244,7 @@ check(
   "weekday-copy shortcut copies explicit hours without inventing weekend work",
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   await run(
     "return (await s.all('workSchedules')).some(sc=>sc.workerId==='sam'&&Object.keys(sc.days).length===5)&&(await s.all('scheduleRevisions')).some(r=>r.workerId==='sam'&&r.editorId==='morgan');",
@@ -292,11 +292,11 @@ await action("close");
 await action("edit-time:seed-today-alex");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 await fill("[name=breakMinutes]", "5");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   await run(
     "return (await s.all('operations')).some(o=>o.data.id==='seed-today-alex'&&o.state==='queued'&&o.data.breakMinutes===5);",
@@ -353,13 +353,13 @@ await waitFor(
 await action("edit-time:offline-overlap");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 await fill("[name=start]", "11:00");
 await fill("[name=end]", "12:00");
 await fill("[name=breakMinutes]", "0");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 await waitFor("document.querySelector('.queue-button')");
 for (let n = 0; n < 50; n++) {
   if (
@@ -388,15 +388,15 @@ await send("Emulation.setDeviceMetricsOverride", {
 await action("time");
 // Closed dialogs retain their previous DOM; wait for the newly opened form.
 await waitFor(
-  "document.querySelector('#dialog').open && document.querySelector('#time-form')",
+  "document.querySelector('#dialog').matches('.form-page, [open]') && document.querySelector('#time-form')",
 );
 check(
   await evaluate(
     "document.documentElement.scrollWidth<=window.innerWidth&&document.querySelector('#dialog').scrollWidth<=document.querySelector('#dialog').clientWidth",
   ),
-  "320 px time dialog and page have no horizontal overflow",
+  "320 px time form and page have no horizontal overflow",
 );
-await evaluate("document.querySelector('.dialog-content').scrollTop=100000");
+await evaluate("document.querySelector('#time-form [type=submit]').scrollIntoView({block:'end'})");
 check(
   await evaluate(
     "(()=>{const b=document.querySelector('#time-form [type=submit]').getBoundingClientRect(),v=window.visualViewport;return b.height>=44&&b.bottom<=(v?.height||innerHeight)+1;})()",

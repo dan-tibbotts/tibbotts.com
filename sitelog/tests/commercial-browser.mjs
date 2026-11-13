@@ -136,7 +136,7 @@ await evaluate(
   "document.querySelector('[name=roles][value=customer]').checked=true",
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   await run(
     "return (await s.all('contacts')).some(c=>c.name==='UI Fictional Client');",

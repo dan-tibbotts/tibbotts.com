@@ -65,6 +65,7 @@ try {
     ready("http://localhost:4174/sitelog/"),
   ]);
   for (const suite of process.env.SITELOG_TEST_SUITES?.split(",") || [
+    "navigation-browser.mjs",
     "browser-smoke.mjs",
     "stage1-browser.mjs",
     "release-browser.mjs",

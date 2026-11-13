@@ -106,7 +106,7 @@ check(
   "draft survived reload",
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data(
     "(await s.all('operations')).filter(o=>o.kind==='note'&&o.state==='queued').length",
@@ -125,7 +125,7 @@ await action("edit-note:" + pendingNoteId);
 await waitFor("document.querySelector('textarea[name=text]')");
 await fill("textarea[name=text]", "Offline browser smoke note, corrected");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data(
     "(await s.all('operations')).filter(o=>o.kind==='note').length",
@@ -150,7 +150,7 @@ await fill("input[name=start]", "10:00");
 await fill("input[name=end]", "12:00");
 await fill("input[name=breakMinutes]", "15");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data(
     "(await s.all('operations')).filter(o=>o.kind==='time'&&o.data.totalMinutes===105).length",
@@ -174,7 +174,7 @@ await evaluate(
   `(async()=>{const c=document.createElement('canvas');c.width=2400;c.height=1600;const x=c.getContext('2d');x.fillStyle='#506c50';x.fillRect(0,0,c.width,c.height);const b=await new Promise(r=>c.toBlob(r,'image/png'));const dt=new DataTransfer();dt.items.add(new File([b],'smoke-photo.png',{type:'image/png',lastModified:Date.now()}));const input=document.querySelector('[name=files]');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`,
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data(
     "(await s.all('operations')).filter(o=>o.kind==='media'&&o.state==='queued').length",
@@ -199,7 +199,7 @@ await evaluate(
   `(async()=>{const c=document.createElement('canvas');c.width=320;c.height=240;const x=c.getContext('2d');x.fillStyle='#243e39';x.fillRect(0,0,320,240);const stream=c.captureStream(10),chunks=[];const recorder=new MediaRecorder(stream,{mimeType:'video/webm'});const done=new Promise(resolve=>{recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstop=resolve;});recorder.start();await new Promise(r=>setTimeout(r,250));recorder.stop();await done;stream.getTracks().forEach(t=>t.stop());const dt=new DataTransfer();dt.items.add(new File(chunks,'smoke-video.webm',{type:'video/webm'}));const input=document.querySelector('[name=files]');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`,
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data(
     "(await s.all('operations')).filter(o=>o.kind==='media'&&o.data.kind==='video'&&o.state==='queued').length",
@@ -251,7 +251,7 @@ await action("edit-time:seed-today-alex");
 await waitFor("document.querySelector('input[name=breakMinutes]')");
 await fill("input[name=breakMinutes]", "10");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 await waitFor("document.body.innerText.includes('Demo synced')");
 await new Promise((r) => setTimeout(r, 550));
 check(
@@ -288,7 +288,7 @@ await evaluate(
   "document.querySelector('[name=workerIds][value=alex]').checked=true",
 );
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   await data(
     "(await s.all('jobs')).some(j=>j.name==='Browser Test Site'&&j.workerIds.includes('alex'))",
@@ -301,7 +301,7 @@ await waitFor("document.querySelector('[name=displayName]')");
 await fill("[name=displayName]", "Jamie Demo");
 await fill("[name=email]", "jamie@example.test");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 check(
   (await data("(await s.all('invites')).length")) === 1,
   "local demo invite created",
@@ -353,7 +353,7 @@ await action("note");
 await waitFor("document.querySelector('textarea[name=text]')");
 await fill("textarea[name=text]", "Saved while demo session expired");
 await submit();
-await waitFor("!document.querySelector('#dialog').open");
+await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
 await action("queue");
 await waitFor(
   "document.querySelector('#queue-content').innerText.includes('session expired')",

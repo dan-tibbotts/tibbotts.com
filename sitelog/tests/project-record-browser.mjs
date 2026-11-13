@@ -25,7 +25,7 @@ async function submit() {
   assert.deepEqual(invalid, []);
   await evaluate("document.querySelector('#dialog form').requestSubmit()");
   await waitFor(
-    "!document.querySelector('#dialog').open||document.querySelector('.form-error')?.textContent",
+    "!document.querySelector('#dialog').matches('.form-page, [open]')||document.querySelector('.form-error')?.textContent",
   );
   assert.equal(
     await evaluate(
@@ -140,7 +140,7 @@ try {
   await action("close");
   await action("project-document-new");
   await waitFor(
-    "document.querySelector('#dialog').open&&document.querySelector('[type=file]')",
+    "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[type=file]')",
   );
   await fill("#dialog [name=jobId]", "harbour");
   await fill("#dialog [name=changeNote]", "Uploaded by the office form");
@@ -165,7 +165,7 @@ try {
   await action("nav:media");
   await action("view-media:" + photo.id);
   await action("job-cover:" + photo.id);
-  await waitFor("!document.querySelector('#dialog').open");
+  await waitFor("!document.querySelector('#dialog').matches('.form-page, [open]')");
   await action("nav:jobs");
   await waitFor(
     "document.querySelector('[data-job-photo=harbour]')?.naturalWidth>0",
@@ -206,7 +206,7 @@ try {
   await action("view-media:" + photo.id);
   await action("repeat-photo:" + photo.id);
   await waitFor(
-    "document.querySelector('#dialog').open&&document.querySelector('[name=files]')",
+    "document.querySelector('#dialog').matches('.form-page, [open]')&&document.querySelector('[name=files]')",
   );
   check(
     await evaluate(
